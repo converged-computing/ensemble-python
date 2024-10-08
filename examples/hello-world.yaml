@@ -1,0 +1,47 @@
+# Algorithm details.
+
+# Since we don't have support for grow or shrink of a cluster yet,
+# instead of a reactive algorithm that might do that, let's better
+# control submission. We would want to:
+
+# 1. On creation, submit jobs under a specific set
+# 2. Continue until we have a specific count completed with exit code 0
+# 3. 
+
+# Things that I'd want to be able to do
+# 1. Label jobs that I submit
+# 2. Use the labels to generate some metrics for groups
+# 3. Act on different metrics and events
+
+# Algorithm and options:
+# I was originally going to have a section here, but an algorithm is
+# actually the rules (triggers and actions) that make up the state machine.
+# So while we could eventually package these and call them an algorithm,
+# for now let's keep it simple and not add that layer of abstraction
+
+# I made these the size of the cluster so we trigger scaling at least once
+# We currently assume these are uniform (so no order enforced beyond the listing here)
+jobs:
+  - name: echo
+    command: echo hello world
+    count: 5
+    nodes: 1
+  - name: sleep
+    command: sleep 10
+    count: 2
+    nodes: 1
+
+rules:
+  - trigger: start    
+    action: 
+      name: submit
+      label: sleep
+
+# TODO want a way here to say "when a job completes, count this metric, and if the metric is something, do something else"
+#  - on: metric   
+#    action: 
+#      type: custom
+#      name: check_count
+#      label: lammps-1
+
+#custom: |

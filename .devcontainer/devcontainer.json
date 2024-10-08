@@ -1,0 +1,40 @@
+{
+    "name": "Ensemble Python",
+    "dockerFile": "Dockerfile",
+    "context": "../",
+
+    "customizations": {
+      "vscode": {
+        "settings": {
+          "terminal.integrated.defaultProfile.linux": "bash",
+
+          // Ensure that Python autocomplete works out of the box
+          "python.autoComplete.extraPaths": [
+            "/lib/flux/python3.10/flux",
+            "/lib/python3.10/site-packages/flux",
+            "/usr/local/lib/python3.10/site-packages",
+            "/workspaces/flux-core/src/bindings/python"
+          ],
+          "python.analysis.extraPaths": [
+            "/lib/flux/python3.10/flux",
+            "/lib/python3.10/site-packages/flux",
+            "/usr/local/lib/python3.10/site-packages",
+            "/workspaces/flux-core/src/bindings/python"
+          ]
+        },
+        // Note to Flux Developers! We can add extensions here that you like
+        "extensions": [
+          "ms-vscode.cpptools",                 // C and C++ support
+          "sumneko.lua",                        // Lua support
+          "ms-python.python",                   // Python support
+          "GitHub.vscode-pull-request-github",  // manage and review PRs
+        ]
+      }
+    },
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {
+      "version": "latest"
+    }
+  },
+  "postStartCommand": "git config --global --add safe.directory /workspaces/ensemble"
+}
