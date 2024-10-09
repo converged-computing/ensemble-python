@@ -1,3 +1,5 @@
+import ensemble.defaults as defaults
+
 ensemble_config_schema = {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "$id": "https://github.com/converged-computing/ensemble/tree/main/ensemble/schema.py",
@@ -44,15 +46,8 @@ ensemble_config_schema = {
                     # start, interval
                     "trigger": {
                         "type": "string",
-                        "enum": [
-                            "job-depend",
-                            "job-sched",
-                            "job-run",
-                            "job-cancel",
-                            "job-cleanup",
-                            "job-finish",
-                            "job-success",
-                            "job-fail",
+                        "enum": defaults.job_events
+                        + [
                             "start",
                             "interval",
                         ],

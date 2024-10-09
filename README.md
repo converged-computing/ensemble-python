@@ -26,6 +26,7 @@ This design will be translated into more consolidated design documentation. For 
 - **Rules**: A rule is composed of a trigger and action to take, and this is what drives the ensemble, more akin to a state machine than a traditional workflow DAG because the structure can be unknown at the start. For example, you might say "on the start of the ensemble, submit these jobs with label X."
 - **Triggers**: A trigger is part of a rule (described above) and in the configuration file, and can be read as "when this trigger happens, do this action."
 - **Action**: An actual is an operation that is the result of hitting a trigger condition. It is typically performed by the queue, and thus must be known to it. Example actions include submit, scale-up, scale-down, or terminate.
+- **Metrics** are summary metrics collected for groups of jobs, for FYI or (coming soon) customized algorithms. To support this, we use online (or streaming) ML algorithms for things like mean, IQR, etc.
 
 #### Rules
 
@@ -46,6 +47,24 @@ The current triggers supported are the following. Triggered when:
 - start: The init of the entire ensemble (only happens once)
 - interval: Occurs at an interval (requires interval in seconds as an option)
 
+#### Metrics
+
+We use streaming ML "stats" for each job group, and then a subset of variables. For example, when a job finishes we calculate the duration and update stats for that family and the duration variable.
+
+```console
+🌊 Streaming ML Model Summary:
+   name      : sleep-duration
+   variance  : 5.186765321241182e-06
+   mean      : 10.02671468257904
+   iqr       : 0.003220796585083008
+   max       : 10.028325080871582
+   min       : 10.025104284286499
+   mad       : 0.003220796585083008
+   count     : 2  
+```
+
+That only has two entries (so the data isn't huge) but it's a start.
+Also note that this does not distinguish between failed and successful runs. We would either want to only include successful, or keep them separate.
 
 ### Overview
 
@@ -108,7 +127,7 @@ flux start --test-size=4
 You can then test the MiniCluster monitoring tool (separately):
 
 ```bash
-python3 -m ensemble.members.minicluster
+python3 -m ensemble.members.flux
 ```
 
 ### Questions or Items to DO
@@ -118,6 +137,8 @@ python3 -m ensemble.members.minicluster
 - Likely a custom function should be able to return None and then actions or other rules.
 - Move verbose readme into proper docs
 - Add metrics that can keep summary stats for job groups, and for the queue, and we should be able to act on them. Then add other action triggers and finish the simple hello world example.
+- The metrics recording is a source of data for ML learning, need to figure out the right interface for that.
+- Should we separate fails/successes or just record successes for now?
 
 ## License
 

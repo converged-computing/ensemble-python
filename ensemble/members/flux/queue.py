@@ -26,7 +26,7 @@ class FluxQueue(MemberBase):
     # Rule triggers supported by the flux queue - the "on" directive
     rules = rules
 
-    def __init__(self, job_filters=None, include_inactive=False, refresh_interval=0):
+    def __init__(self, job_filters=None, include_inactive=False, refresh_interval=0, **kwargs):
         """
         Create a new flux handle to monitor a queue.
 
@@ -41,9 +41,68 @@ class FluxQueue(MemberBase):
         self.include_inactive = include_inactive
         self.refresh_interval = refresh_interval
 
+        # The flux sentinel tells us when we have finished with the backlog
+        # https://github.com/flux-framework/flux-core/blob/master/src/modules/job-manager/journal.c#L28-L33
+        self.seen_sentinel = False
+
+        # We store the job id associated with a group until it's cleaned up
+        self.jobids = {}
+        super().__init__(**kwargs)
+
     @property
     def name(self):
         return "FluxQueue"
+
+    def record_metrics(self, record):
+        """
+        Parse a Flux event and record metrics for the group.
+
+        # TODO this is where we can add streaming ML algorithms to learn things.
+        """
+        group = self.jobids.get(record["id"])
+
+        # This should only be one, but we will not assume
+        for event in record.get("events", []):
+
+            # Skip these events... but note that alloc has the R in it
+            # if we eventually want that for something.
+            if event in ["annotations", "alloc"]:
+                continue
+
+            # We want to keep the start time
+            if event["name"] == "start":
+                self.jobids[record["id"]]["start"] = event["timestamp"]
+
+            if event["name"] == "finish":
+                duration = event["timestamp"] - group["start"]
+
+                # Let's do a group name of group-<variable>
+                group_name = f"{group['name']}-duration"
+                self.metrics.record_datum(group_name, duration)
+
+                # Clean up the job from history here, we are done
+                del self.jobids[record["id"]]
+                self.metrics.summary(group_name)
+
+        # TODO custom triggers -> actions!
+
+    def record_event(self, event):
+        """
+        Record the event. This needs to be specific to the workload manager.
+        """
+        # Is this the sentinel?
+        # The sentinel tells us when the "backlog" is finished
+        if not self.seen_sentinel:
+            if event["id"] == -1:
+                print("Sentinel is seen, starting event monitoring.")
+                self.seen_sentinel = True
+                return
+
+        # Record metrics for the event
+        self.record_metrics(event)
+
+        # print("respond to event")
+        # print(event)
 
     def start(self):
         """
@@ -63,6 +122,7 @@ class FluxQueue(MemberBase):
             payload = response.get()
             print(payload)
             response.reset()
+            self.record_event(payload)
 
         events = self.handle.rpc(
             "job-manager.events-journal",
@@ -100,6 +160,9 @@ class FluxQueue(MemberBase):
                 )
                 workdir = job["workdir"]
 
+                # Set user attribute we can later retrieve to identify group
+                jobspec.attributes["user"] = {"group": group["name"]}
+
                 # Do we have a working directory?
                 if workdir:
                     jobspec.cwd = workdir
@@ -108,6 +171,10 @@ class FluxQueue(MemberBase):
                 jobspec.duration = job["duration"]
                 jobid = flux.job.submit(self.handle, jobspec)
                 print(f"  ⭐️ Submit job {job['command']}: {jobid}")
+
+                # This is the job id that will show up in events
+                numerical = jobid.as_integer_ratio()[0]
+                self.jobids[numerical] = {"name": group["name"]}
 
     def extract_jobs(self, group):
         """

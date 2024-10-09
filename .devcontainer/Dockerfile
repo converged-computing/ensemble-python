@@ -14,7 +14,7 @@ ENV USER_GID=${USER_GID}
 USER root
 RUN apt-get update && apt-get install -y python3-pip
 COPY requirements.txt /requirements.txt
-
+COPY .github/dev-requirements.txt /dev-requirements.txt
 
 RUN curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v28.2/protoc-28.2-linux-x86_64.zip && \
     unzip -o protoc-28.2-linux-x86_64.zip -d /usr/local bin/protoc && \
@@ -24,6 +24,7 @@ RUN curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v28.2
 # For easier Python development.
 RUN python3 -m pip install IPython && \
     python3 -m pip install -r /requirements.txt
+    python3 -m pip install -r /dev-requirements.txt
 
 # Assuming installing to /usr/local
 ENV LD_LIBRARY_PATH=/usr/local/lib

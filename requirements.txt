@@ -3,3 +3,4 @@ grpcio-tools
 jsonschema
 pyyaml
 jobspec
+river

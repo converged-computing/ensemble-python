@@ -1,5 +1,5 @@
 import ensemble.config as cfg
-
+from ensemble.members.metrics import QueueMetrics
 
 # Right now assume all executors have the same actions
 valid_actions = ["submit"]
@@ -17,11 +17,20 @@ class MemberBase:
         # Set options as attributes
         for key, value in options.items():
             setattr(self, key, value)
+
+        # Common queue metrics
+        self.metrics = QueueMetrics()
         if not hasattr(self, "rules") or not self.rules:
             raise ValueError("The queue executor needs to have a list of supported rules.")
 
     @property
     def name(self):
+        raise NotImplementedError
+
+    def record_metrics(self, event):
+        """
+        Record group metrics for the event.
+        """
         raise NotImplementedError
 
     def iter_rules(self, name):

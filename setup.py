@@ -37,7 +37,7 @@ if __name__ == "__main__":
         long_description_content_type="text/markdown",
         keywords="multi-cluster, scheduler",
         setup_requires=["pytest-runner"],
-        install_requires=["grpcio", "grpcio-tools", "jsonschema", "pyyaml", "jobspec"],
+        install_requires=["grpcio", "grpcio-tools", "jsonschema", "pyyaml", "jobspec", "river"],
         tests_require=["pytest", "pytest-cov"],
         classifiers=[
             "Intended Audience :: Science/Research",
@@ -48,7 +48,7 @@ if __name__ == "__main__":
             "Topic :: Software Development",
             "Topic :: Scientific/Engineering",
             "Operating System :: Unix",
-            "Programming Language :: Python :: 3.7",
+            "Programming Language :: Python :: 3.8",
         ],
         entry_points={
             "console_scripts": [
