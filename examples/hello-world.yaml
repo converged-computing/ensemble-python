@@ -6,7 +6,7 @@
 
 # 1. On creation, submit jobs under a specific set
 # 2. Continue until we have a specific count completed with exit code 0
-# 3. 
+# 3.
 
 # Things that I'd want to be able to do
 # 1. Label jobs that I submit
@@ -32,14 +32,14 @@ jobs:
     nodes: 1
 
 rules:
-  - trigger: start    
-    action: 
+  - trigger: start
+    action:
       name: submit
       label: sleep
 
 # TODO want a way here to say "when a job completes, count this metric, and if the metric is something, do something else"
-#  - on: metric   
-#    action: 
+#  - on: metric
+#    action:
 #      type: custom
 #      name: check_count
 #      label: lammps-1

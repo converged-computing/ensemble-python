@@ -2,7 +2,7 @@
 
 ![PyPI - Version](https://img.shields.io/pypi/v/ensemble-python)
 
-An HPC ensemble is an orchestration of jobs that can ideally be controlled by an algorithm. Ensemble (in python) is a project to do exactly that. As a user, you specify the parameters for your job, and then an algorithm and options for it. The library hear listens for the heartbeat of your ensemble -- events that come directly from the queue or entity that is controlling the jobs. 
+An HPC ensemble is an orchestration of jobs that can ideally be controlled by an algorithm. Ensemble (in python) is a project to do exactly that. As a user, you specify the parameters for your job, and then an algorithm and options for it. The library hear listens for the heartbeat of your ensemble -- events that come directly from the queue or entity that is controlling the jobs.
 This means that we define:
 
 - A number of executors (typically queues) that can deliver events (heartbeats)
@@ -30,7 +30,7 @@ This design will be translated into more consolidated design documentation. For 
 
 #### Rules
 
-A rule defines a trigger "on" and action to take. The library is event driven, meaning that the queue is expected to send events, and we don't do any polling. 
+A rule defines a trigger "on" and action to take. The library is event driven, meaning that the queue is expected to send events, and we don't do any polling.
 
 ##### Triggers
 
@@ -60,7 +60,7 @@ We use streaming ML "stats" for each job group, and then a subset of variables. 
    max       : 10.028325080871582
    min       : 10.025104284286499
    mad       : 0.003220796585083008
-   count     : 2  
+   count     : 2
 ```
 
 That only has two entries (so the data isn't huge) but it's a start.
@@ -101,7 +101,7 @@ Right now, this will run any rules with "start" triggers, which for this hello w
 <summary>Example Ensemble Run</summary>
 
 ```console
- ensemble run examples/hello-world.yaml 
+ ensemble run examples/hello-world.yaml
   ⭐️ Submit job ['sleep', '10']: ƒD2kHJipp7
   ⭐️ Submit job ['sleep', '10']: ƒD2kHtpYJ3
 {'id': 1540612620812288, 'events': [{'timestamp': 1728416529.2622762, 'name': 'submit', 'context': {'userid': 1000, 'urgency': 16, 'flags': 0, 'version': 1}}, {'timestamp': 1728416529.2734637, 'name': 'validate'}, {'timestamp': 1728416529.2843053, 'name': 'depend'}, {'timestamp': 1728416529.284362, 'name': 'priority', 'context': {'priority': 16}}, {'timestamp': 1728416529.2854803, 'name': 'alloc'}, {'timestamp': 1728416529.287176, 'name': 'start'}], 'jobspec': {'resources': [{'type': 'node', 'count': 1, 'with': [{'type': 'slot', 'count': 1, 'with': [{'type': 'core', 'count': 1}], 'label': 'task'}]}], 'tasks': [{'command': ['sleep', '10'], 'slot': 'task', 'count': {'per_slot': 1}}], 'attributes': {'system': {'duration': 0.0}}, 'version': 1}, 'R': {'version': 1, 'execution': {'R_lite': [{'rank': '3', 'children': {'core': '7'}}], 'nodelist': ['08c63b4a360d'], 'starttime': 1728416529, 'expiration': 4881924701}}}

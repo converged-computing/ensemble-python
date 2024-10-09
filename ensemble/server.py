@@ -117,7 +117,7 @@ class EnsembleEndpoint(api.EnsembleOperatorServicer):
         print(f"Payload {request.payload}")
 
         # Assume first successful response
-        status = ensemble_service_pb2.Response.ResultType.SUCCESS
+        # status = ensemble_service_pb2.Response.ResultType.SUCCESS
         response = ensemble_service_pb2.Response()
 
         # The member primarily is directed to take the action

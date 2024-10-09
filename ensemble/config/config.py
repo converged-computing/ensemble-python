@@ -1,6 +1,7 @@
+import jsonschema
+
 import ensemble.utils as utils
 from ensemble import schema
-import jsonschema
 
 
 def load_config(config_path):

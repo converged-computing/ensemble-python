@@ -1,17 +1,17 @@
 import json
-import multiprocessing
-import random
 import shlex
 import sys
 
-from ensemble.members.base import MemberBase
+import ensemble.members as members
 import ensemble.members.flux.metrics as metrics
+from ensemble.members.base import MemberBase
+from ensemble.protos import ensemble_service_pb2
 
 try:
     import flux
+    import flux.constants
     import flux.job
     import flux.rpc
-    import flux.constants
 except ImportError:
     sys.exit("flux python is required to use the flux queue member")
 
@@ -63,7 +63,6 @@ class FluxQueue(MemberBase):
 
         # This should only be one, but we will not assume
         for event in record.get("events", []):
-
             # Skip these events... but note that alloc has the R in it
             # if we eventually want that for something.
             if event in ["annotations", "alloc"]:
@@ -143,7 +142,6 @@ class FluxQueue(MemberBase):
         # Default to all jobs
         jobs = self.cfg["jobs"]
         if label is not None:
-
             # Get labeled jobs (can be more than one set)
             jobs = self.get_labeled_jobs(label)
             if not jobs:
@@ -407,7 +405,7 @@ class EnsembleEndpoint:
         print(f"Payload {request.payload}")
 
         # Assume first successful response
-        status = ensemble_service_pb2.Response.ResultType.SUCCESS
+        # status = ensemble_service_pb2.Response.ResultType.SUCCESS
         response = ensemble_service_pb2.Response()
 
         # The member primarily is directed to take the action

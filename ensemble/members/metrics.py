@@ -27,7 +27,7 @@ class QueueMetrics:
         """
         Summarize currently known models under a key
         """
-        print(f"🌊 Streaming ML Model Summary:")
+        print("🌊 Streaming ML Model Summary:")
         print(f"   name      : {key}")
         for model_name, models in self.models.items():
             if key not in models:

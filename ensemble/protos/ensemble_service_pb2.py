@@ -27,9 +27,9 @@ _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, "ensemble_service_pb2", _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
     _globals["DESCRIPTOR"]._loaded_options = None
-    _globals["DESCRIPTOR"]._serialized_options = (
-        b"Z5github.com/converged-computing/ensemble-python/protos"
-    )
+    _globals[
+        "DESCRIPTOR"
+    ]._serialized_options = b"Z5github.com/converged-computing/ensemble-python/protos"
     _globals["_STATUSREQUEST"]._serialized_start = 58
     _globals["_STATUSREQUEST"]._serialized_end = 108
     _globals["_UPDATEREQUEST"]._serialized_start = 110
