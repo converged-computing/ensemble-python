@@ -44,12 +44,14 @@ ensemble_config_schema = {
                     # job-success, job-inactive, job-fail, job-cancel. These are events that
                     # coincide with setting up the tool here:
                     # start, interval
+                    "name": {"type": "string"},
+                    "when": {"type": ["string", "number"]},
                     "trigger": {
                         "type": "string",
                         "enum": defaults.job_events
                         + [
                             "start",
-                            "interval",
+                            "metric",
                         ],
                     },
                     "action": {

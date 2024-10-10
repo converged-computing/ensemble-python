@@ -1,9 +1,6 @@
 import ensemble.config as cfg
 from ensemble.members.metrics import QueueMetrics
 
-# Right now assume all executors have the same actions
-valid_actions = ["submit"]
-
 
 class MemberBase:
     """
@@ -20,7 +17,7 @@ class MemberBase:
 
         # Common queue metrics
         self.metrics = QueueMetrics()
-        if not hasattr(self, "rules") or not self.rules:
+        if not hasattr(self, "rules_supported") or not self.rules_supported:
             raise ValueError("The queue executor needs to have a list of supported rules.")
 
     @property
@@ -37,27 +34,53 @@ class MemberBase:
         """
         Yield events that match a name
         """
-        for rule in self.cfg.get("rules", []):
-            if rule["trigger"] == name:
-                yield rule
+        if name not in self.cfg.rules:
+            return
+        for rule in self.cfg.rules[name]:
+            yield rule
 
-    def get_labeled_jobs(self, label):
+    def execute_rule(self, rule):
         """
-        Get jobs that match a specific label
+        Given a rule and associated action extracted, run it!
         """
-        jobs = []
-        for jobset in self.cfg["jobs"]:
-            name = jobset.get("name")
-            if name and name == label:
-                jobs.append(jobset)
-        return jobs
+        # Metrics can have a "when"
+        if rule.trigger == "metric":
+            return self.execute_metric_action(rule)
 
-    def run_action(self, action):
+        # Do we want to submit a job?
+        return self.execute_action(rule.action)
+
+    def execute_action(self, action):
         """
-        Given an action extracted from a rule, run it!
+        Execute a general action, it's assumed that
+        the trigger was called if we get here.
         """
-        if action["name"] == "submit":
-            self.submit(action)
+        if action.name == "submit":
+            return self.submit(action)
+
+        # TODO add actions for job states
+        print("UNSEEN ACTION")
+        import IPython
+
+        IPython.embed()
+
+    def execute_metric_action(self, rule):
+        """
+        Execute a metric action.
+        """
+        # Parse the metric
+        metric_path = rule.name.split(".")
+        item = self.metrics.models
+        for path in metric_path:
+            if path not in item:
+                return
+            item = item[path]
+
+        # The user set a "when" and it must match exactly.
+        if rule.when is not None and item.get() != rule.when:
+            return
+        print(self.metrics.models)
+        return self.execute_action(rule.action)
 
     def validate_rules(self):
         """
@@ -65,14 +88,7 @@ class MemberBase:
 
         We also check the actions contained within.
         """
-        supported = set(self.rules)
-        for rule in self.cfg["rules"]:
-            trigger = rule["trigger"]
-            if trigger not in supported:
-                raise ValueError(f"Rule trigger {trigger} is not supported by {self.name}")
-            action_name = rule["action"]["name"]
-            if action_name not in valid_actions:
-                raise ValueError(f"Rule trigger {trigger} has invalid action name {action_name}")
+        self.cfg.check_supported(self.rules_supported)
 
     def load(self, config_path):
         """
