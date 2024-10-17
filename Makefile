@@ -14,15 +14,15 @@ python: python ## Generate python proto files in python
 	sed -i 's/import ensemble_service_pb2 as ensemble__service__pb2/from . import ensemble_service_pb2 as ensemble__service__pb2/' ./ensemble/protos/ensemble_service_pb2_grpc.py
 
 .PHONY: docker-build
-docker-build: test ## Build docker image with the manager.
+docker-build:
 	docker build -t ${IMG} .
 
 .PHONY: arm-build
-arm-build: test ## Build docker image with the manager.
+arm-build:
 	docker buildx build --platform linux/arm64 -t ${ARMIMG} .
 
 .PHONY: arm-deploy
-arm-deploy: manifests kustomize
+arm-deploy:
 	docker buildx build --platform linux/arm64 --push -t ${ARMIMG} .
 
 .PHONY: docker-push
