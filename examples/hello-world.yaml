@@ -8,10 +8,10 @@
 # 2. Continue until we have a specific count completed with exit code 0
 # 3. Run another set of jobs!
 
-# Things that I'd want to be able to do
-# 1. Label jobs that I submit
-# 2. Use the labels to generate some metrics for groups (using online ML)
-# 3. Act on different metrics and events
+# Things you can do:
+# 1. Label jobs that you submit
+# 2. The labels generate metrics for groups (using online ML)
+# 3. You can act on different metrics and events with known actions or custom functions
 
 # Algorithm and options:
 # I was originally going to have a section here, but an algorithm is
@@ -38,7 +38,7 @@ rules:
       name: submit
       label: sleep
 
-  # This says to submit the echo hello world jobs when we have 5
+  # This says to submit the echo hello world jobs when we have 3
   # successfully completed sleep jobs. This dot notation is a path into the
   # models data structure.
   - trigger: metric
@@ -47,13 +47,3 @@ rules:
     action:
       name: submit
       label: echo
-
-# TODO a more custom user function action?
-# A custom trigger from some other source?
-#  - on: metric
-#    action:
-#      type: custom
-#      name: check_count
-#      label: lammps-1
-
-#custom: |

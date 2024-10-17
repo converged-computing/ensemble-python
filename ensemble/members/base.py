@@ -1,5 +1,11 @@
 import ensemble.config as cfg
 from ensemble.members.metrics import QueueMetrics
+from ensemble.logger import LogColors
+import sys
+
+# Examples for status in the future
+# "{LogColors.OKBLUE}{js.name}{LogColors.ENDC} {LogColors.RED}NOT OK{LogColors.ENDC}"                    )
+# "{LogColors.OKBLUE}{js.name}{LogColors.ENDC} {LogColors.RED}NOT OK{LogColors.ENDC}"
 
 
 class MemberBase:
@@ -43,26 +49,58 @@ class MemberBase:
         """
         Given a rule and associated action extracted, run it!
         """
+        # Was the rule already done?
+        if rule.disabled:
+            return
+
         # Metrics can have a "when"
         if rule.trigger == "metric":
             return self.execute_metric_action(rule)
 
         # Do we want to submit a job?
-        return self.execute_action(rule.action)
+        self.execute_action(rule)
 
-    def execute_action(self, action):
+    def announce(self, message, meta=None, ljust=15, color="cyan"):
+        """
+        Announce an event (with colors for the viewer)
+        """
+        end = "\n"
+        extra = ""
+        if meta is not None:
+            end = ""
+
+        prefix = message.ljust(ljust)
+        if color == "cyan":
+            print(f"{LogColors.OKCYAN}{prefix}{LogColors.ENDC}{extra}", end=end)
+        elif color == "blue":
+            print(f"{LogColors.OKBLUE}{prefix}{LogColors.ENDC}{extra}", end=end)
+        if meta is not None:
+            print(f"{LogColors.PURPLE}{meta}{LogColors.ENDC}".ljust(10))
+
+    def execute_action(self, rule):
         """
         Execute a general action, it's assumed that
         the trigger was called if we get here.
         """
-        if action.name == "submit":
-            return self.submit(action)
+        # This function checks for repetitions and backoff
+        # periods, and determines if we should continue (to run)
+        # or not this time. If it returns True, the action is
+        # also updated to indicate running.
+        if not rule.action.perform():
+            return
 
-        # TODO add actions for job states
-        print("UNSEEN ACTION")
+        if rule.action.name == "submit":
+            self.announce(f" => trigger {rule.name}", color="blue")
+            self.announce(
+                f"   ⭐️ submit {rule.action.label} ", self.cfg.pretty_job(rule.action.label)
+            )
+            return self.submit(rule.action)
+
+        print("ANOTHER ACTION")
         import IPython
 
         IPython.embed()
+        sys.exit()
 
     def execute_metric_action(self, rule):
         """
@@ -79,8 +117,9 @@ class MemberBase:
         # The user set a "when" and it must match exactly.
         if rule.when is not None and item.get() != rule.when:
             return
-        print(self.metrics.models)
-        return self.execute_action(rule.action)
+        if self.cfg.debug_logging:
+            print(self.metrics.models)
+        return self.execute_action(rule)
 
     def validate_rules(self):
         """

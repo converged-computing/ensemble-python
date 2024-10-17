@@ -1,5 +1,6 @@
 import shlex
 import sys
+from datetime import datetime
 
 from ensemble.members.base import MemberBase
 
@@ -11,7 +12,40 @@ try:
 except ImportError:
     sys.exit("flux python is required to use the flux queue member")
 
+# These are triggers supported for rules
 rules = ["start", "metric"]
+
+# Through cleanup are actual flux events, and the rest we derive
+# Note that each of these has custom metadata we could use (but don't yet)
+# https://flux-framework.readthedocs.io/projects/flux-rfc/en/latest/spec_21.html
+job_events = [
+    "submit",
+    "jobspec-update",
+    "resource-update",
+    "validate",
+    "invalidate",
+    "set-flags",
+    "dependency-add",
+    "dependency-remove",
+    "depend",
+    "priority",
+    "flux-restart",
+    "urgency",
+    "alloc",
+    "prolog-start",
+    "prolog-finish",
+    "epilog-start",
+    "epilog-finish",
+    "free",
+    "start",
+    "release",
+    "finish",
+    "clean",
+    "exception",
+    "memo",
+    "debug",
+]
+rules += [f"job-{x}" for x in job_events]
 
 
 class FluxQueue(MemberBase):
@@ -64,43 +98,80 @@ class FluxQueue(MemberBase):
         """
         Parse a Flux event and record metrics for the group.
         """
-        group = self.jobids.get(record["id"])
-
-        # This should only be one, but we will not assume
+        # This should only be one after the sentinal, but we will not assume
         for event in record.get("events", []):
             # Skip these events... but note that alloc has the R in it
             # if we eventually want that for something.
             if event in ["annotations", "alloc"]:
                 continue
 
-            # We want to keep the start time
+            # We want to keep the start timestamp for duration
             if event["name"] == "start":
-                self.jobids[record["id"]]["start"] = event["timestamp"]
+                self.record_start_metrics(event, record)
 
+            # We want to keep the submit timestamp for time in queue
+            if event["name"] == "submit":
+                self.record_submit_metrics(event, record)
+
+            # Job finish
             if event["name"] == "finish":
-                duration = event["timestamp"] - group["start"]
-
-                # Let's do a group name of group-<variable>
-                group_name = f"{group['name']}-duration"
-                self.metrics.record_datum(group_name, duration)
-
-                # Clean up the job from history here, we are done
-                del self.jobids[record["id"]]
-
-                # Increment finished jobs by one
-                self.metrics.increment(group["name"], "finished")
-                if event["context"]["status"] == 0:
-                    self.metrics.increment(group["name"], "success")
-                else:
-                    self.metrics.increment(group["name"], "failed")
-                self.summarize()
+                self.record_finish_metrics(event, record)
 
         # Once events are recorded, trigger actions associated
-        # with event updates. This is usually counts, etc.
+        # with metric event updates. This is usually counts, etc.
         for rule in self.iter_rules("metric"):
             self.execute_rule(rule)
 
         # TODO custom triggers -> actions!
+
+    def record_start_metrics(self, event, record):
+        """
+        We typically want to keep the job start time for the
+        overall job duration, and calculate time in queue (pending)
+        """
+        group = self.jobids.get(record["id"])
+
+        # We are interested in time in the queue
+        self.jobids[record["id"]]["start"] = event["timestamp"]
+
+        # Time in the queue is the start time (larger) - submit time
+        time_in_queue = event["timestamp"] - group["submit"]
+
+        # Pending time is time in the queue
+        group_name = f"{group['name']}-pending"
+        self.metrics.record_datum(group_name, time_in_queue)
+
+    def record_submit_metrics(self, event, record):
+        """
+        We typically want to keep the job submit time to calculate
+        time in the queue, which is the start timestamp - submit ts.
+        """
+        self.jobids[record["id"]]["submit"] = event["timestamp"]
+
+    def record_finish_metrics(self, event, record):
+        """
+        Record metrics at the finish of jobs, typically duration
+        and breaking apart by success / failure vs. just completed
+        """
+        group = self.jobids.get(record["id"])
+
+        # We are interested in duration
+        duration = event["timestamp"] - group["start"]
+
+        # Let's do a group name of group-<variable>
+        group_name = f"{group['name']}-duration"
+        self.metrics.record_datum(group_name, duration)
+
+        # Clean up the job from history here, we are done
+        del self.jobids[record["id"]]
+
+        # Increment finished jobs by one
+        self.metrics.increment(group["name"], "finished")
+        if event["context"]["status"] == 0:
+            self.metrics.increment(group["name"], "success")
+        else:
+            self.metrics.increment(group["name"], "failed")
+        self.summarize()
 
     def summarize(self):
         """
@@ -110,22 +181,43 @@ class FluxQueue(MemberBase):
 
         # Time for a summary?
         if self.completion_counter == self.summary_freqency:
-            self.metrics.summarize_all()
+            if self.cfg.debug_logging:
+                self.metrics.summarize_all()
             self.completion_counter = 0
 
-    def record_event(self, event):
+    def record_event(self, record):
         """
         Record the event. This needs to be specific to the workload manager.
         """
         # The sentinel tells us when the "backlog" is finished
         if not self.seen_sentinel:
-            if event["id"] == -1:
-                print("Sentinel is seen, starting event monitoring.")
+            if record["id"] == -1:
+                if self.cfg.debug_logging:
+                    print("Sentinel is seen, starting event monitoring.")
                 self.seen_sentinel = True
                 return
 
         # Record metrics for the event
-        self.record_metrics(event)
+        self.record_metrics(record)
+
+        # Check to see if the ensemble has any triggers for the event
+        # Unlike metrics (automated) these are event triggers from
+        # the ensemble rules
+        for event in record["events"]:
+            self.check_event(record, event)
+
+    def check_event(self, record, event):
+        """
+        Given a record (with a job id and other metadata) and an associated
+        event, check if there are any rules for it
+        """
+        # The rules that the user defines are namespaced to jobs, so
+        # we add the prefix of "job-" the event, assuming it is a job
+        # I'm not sure if there are other prefixes relevant here, but
+        # I am namespacing it to prepare for that possibility
+        job_event = f"job-{event['name']}"
+        for rule in self.iter_rules(job_event):
+            self.execute_rule(rule)
 
     def start(self):
         """
@@ -143,8 +235,10 @@ class FluxQueue(MemberBase):
             Receive callback when a flux job posts an event.
             """
             payload = response.get()
-            # TODO be more selective about what we print here
-            print(payload)
+
+            # Only print if the config has logging->debug set to true
+            if self.cfg.debug_logging:
+                print(payload)
             response.reset()
             self.record_event(payload)
 
@@ -182,11 +276,13 @@ class FluxQueue(MemberBase):
                 # Use direction or default to 0, unlimited
                 jobspec.duration = job["duration"]
                 jobid = flux.job.submit(self.handle, jobspec)
-                print(f"  ⭐️ Submit job {job['command']}: {jobid}")
+
+                # Don't rely on an event here, this is when the user (us) submits
+                submit_time = datetime.now().timestamp()
 
                 # This is the job id that will show up in events
                 numerical = jobid.as_integer_ratio()[0]
-                self.jobids[numerical] = {"name": group["name"]}
+                self.jobids[numerical] = {"name": group["name"], "submit-timestamp": submit_time}
 
     def extract_jobs(self, group):
         """
