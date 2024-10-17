@@ -1,4 +1,5 @@
 from river import stats
+import ensemble.utils as utils
 
 model_inits = {
     "variance": stats.Var,
@@ -39,14 +40,16 @@ class QueueMetrics:
         """
         Summarize currently known models under a key
         """
-        print("🌊 Streaming ML Model Summary:")
-        print(f"   name      : {key}")
+        print(f"🌊 Streaming ML Model Summary {key}: ", end="")
+        items = {}
         for model_name in model_inits:
             models = self.models[model_name]
             if key not in models:
                 continue
             model = models[key]
-            print(f"   {model_name.ljust(10)}: {model.get()}")
+            items[model_name] = model.get()
+        print(utils.pretty_print_list(items))
+        return items
 
     def increment(self, group, key):
         """

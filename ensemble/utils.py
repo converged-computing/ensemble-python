@@ -22,6 +22,11 @@ def read_file(filename):
     return content
 
 
+def write_file(content, filename):
+    with open(filename, "w") as fd:
+        fd.write(content)
+
+
 def read_yaml(filename):
     """
     Read yaml from file
@@ -68,3 +73,18 @@ def get_tmpdir(tmpdir=None, prefix="", create=True):
         os.mkdir(tmpdir)
 
     return tmpdir
+
+
+def pretty_print_list(listing):
+    """
+    Pretty print a list of json (python dictionaries)
+    """
+    # Prepare common format
+    if not isinstance(listing, list):
+        listing = [listing]
+    result = ""
+    for i, item in enumerate(listing):
+        result += "".join(f"({k}:{v})," for k, v in item.items())
+        if len(listing) > 1 and i != len(listing) - 1:
+            result += "\n"
+    return result.strip(",")

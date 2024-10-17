@@ -120,7 +120,7 @@ class FluxQueue(MemberBase):
         # Once events are recorded, trigger actions associated
         # with metric event updates. This is usually counts, etc.
         for rule in self.iter_rules("metric"):
-            self.execute_rule(rule)
+            self.execute_rule(rule, record)
 
         # TODO custom triggers -> actions!
 
@@ -217,7 +217,7 @@ class FluxQueue(MemberBase):
         # I am namespacing it to prepare for that possibility
         job_event = f"job-{event['name']}"
         for rule in self.iter_rules(job_event):
-            self.execute_rule(rule)
+            self.execute_rule(rule, record)
 
     def start(self):
         """
@@ -251,10 +251,28 @@ class FluxQueue(MemberBase):
         events.then(event_callback)
         self.handle.reactor_run()
 
-    def submit(self, action):
+    def custom_action(self, rule, record=None):
+        """
+        Custom action runs the action (and runs another action, if returned)
+        and passes forward the flux handle and other metadata.
+        """
+        kwargs = {
+            "event": record,
+            "action": rule.action,
+            "rule": rule,
+            "handle": self.handle,
+            "metrics": self.metrics,
+        }
+        action = rule.action.func(**kwargs)
+        if action is not None:
+            return self.execute_action(rule, record)
+
+    def submit(self, rule, record=None):
         """
         Receive the flux handle and StatusRequest payload to act on.
         """
+        action = rule.action
+
         # Dp we want to target a specific job label?
         # Now submit, likely randomized
         for group in self.cfg.iter_jobs(action.label):

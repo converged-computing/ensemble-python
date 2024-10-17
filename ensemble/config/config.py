@@ -2,9 +2,16 @@ import jsonschema
 
 import ensemble.utils as utils
 from ensemble import schema
+from ensemble.logger.generate import JobNamer
+from ensemble.config.types import Rule
+import shutil
+import importlib
+import random
+import os
 
 # Right now assume all executors have the same actions
-valid_actions = ["submit"]
+script_template = """from ensemble.config.types import Action, Rule
+"""
 
 
 def load_config(config_path):
@@ -43,13 +50,7 @@ class EnsembleConfig:
             raise ValueError(f'job with name "{name}" is not known')
 
         # Each job group can have more than one set
-        result = ""
-        jobs = self.jobs[name]
-        for i, job in enumerate(jobs):
-            result += "".join(f"({k}:{v})," for k, v in job.items())
-            if len(jobs) > 1 and i != len(jobs) - 1:
-                result += "\n"
-        return result.strip(",")
+        return utils.pretty_print_list(self.jobs[name])
 
     def check_supported(self, supported):
         """
@@ -72,12 +73,36 @@ class EnsembleConfig:
             for jobset in self.jobs[label]:
                 yield jobset
 
+    def customize(self):
+        """
+        For custom actions, we need to write to a template
+        file, and then import and make the function available on
+        the action.
+        """
+        # Add imports to the custom script
+        script = script_template + self._cfg["custom"]
+        tmpdir = utils.get_tmpdir()
+        script_name = "_".join([random.choice(JobNamer._descriptors) for _ in range(2)])
+        script_path = os.path.join(tmpdir, f"{script_name}.py")
+        utils.write_file(script, script_path)
+
+        # module will have custom functions
+        spec = importlib.util.spec_from_file_location(script_name, script_path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        self.custom = module
+        shutil.rmtree(tmpdir)
+
     def parse(self):
         """
         Parse config into organized pieces for more efficient lookup.
         """
+        self.custom = None
+        if self._cfg.get("custom") is not None:
+            self.customize()
+
         for rule in self._cfg["rules"]:
-            rule = Rule(rule)
+            rule = Rule(rule, self.custom)
 
             # Group rules with common trigger together
             if rule.trigger not in self.rules:
@@ -90,118 +115,3 @@ class EnsembleConfig:
             if job["name"] not in self.jobs:
                 self.jobs[job["name"]] = []
             self.jobs[job["name"]].append(job)
-
-
-class Rule:
-    """
-    A rule wraps an action with additional metadata
-    """
-
-    def __init__(self, rule):
-        self._rule = rule
-        self.disabled = False
-        self.action = Action(rule["action"])
-        self.validate()
-
-    @property
-    def name(self):
-        return self.trigger
-
-    @property
-    def trigger(self):
-        return self._rule["trigger"]
-
-    @property
-    def when(self):
-        return self._rule["when"]
-
-    def validate(self):
-        """
-        Validate the rule and associated action
-        """
-        # Is the action name valid?
-        if self.action.name not in valid_actions:
-            raise ValueError(
-                f"Rule trigger {self.trigger} has invalid action name {self.action.name}"
-            )
-
-
-class Action:
-    """
-    An action holds a name, and metadata about the action.
-    """
-
-    def __init__(self, action):
-        self._action = action
-
-        # We parse this because the value will change
-        # and we don't want to destroy the original setting
-        self.parse_frequency()
-
-    def parse_frequency(self):
-        """
-        Parse the action frequency, which by default, is to run
-        it once. An additional backoff period (number of periods to skip)
-        can also be provided.
-        """
-        self.repetitions = self._action.get("repetitions", 1)
-
-        # Backoff between repetitions (this is global setting)
-        # Setting to None indicates backoff is not active
-        self.backoff = self._action.get("backoff")
-
-        # Counter between repetitions
-        self.backoff_counter = 0
-
-    def perform(self):
-        """
-        Return True or False to indicate performing an action.
-        """
-        # If we are out of repetitions, no matter what, we don't run
-        if self.finished:
-            return False
-
-        # The action is flagged to have some total backoff periods between repetitions
-        if self.backoff is not None and self.backoff >= 0:
-            return self.perform_backoff()
-
-        # If we get here, backoff is not set (None) and repetitions > 0
-        self.repetitions -= 1
-        return True
-
-    def perform_backoff(self):
-        """
-        Perform backoff (going through the logic of checking the
-        period we are on, and deciding to run or not, and decrementing
-        counters) to return a boolean if we should run the action or not.
-        """
-        # But we are still going through a period
-        if self.backoff_counter > 0:
-            self.backoff_counter -= 1
-            return False
-
-        # The backoff counter has expired - it is zero here
-        # reset the counter to the original value
-        self.backoff_counter = self.backoff
-
-        # Decrement repetitions
-        self.repetitions -= 1
-
-        # And signal to run the action
-        return True
-
-    @property
-    def name(self):
-        return self._action.get("name")
-
-    @property
-    def finished(self):
-        """
-        An action is finished when it has no more repetitions
-        It should never go below zero, in practice.
-        """
-        return self.repetitions <= 0
-
-    @property
-    def label(self):
-        return self._action.get("label")
