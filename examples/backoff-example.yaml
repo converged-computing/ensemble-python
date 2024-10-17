@@ -1,0 +1,51 @@
+# Backoff example
+
+# Each action can accept a number of repetitions, and backoff.
+# When you just define repetitions, this is the number of total
+# times to perform the action. When you define backoff, this is the
+# number of periods (events to cycle through) before we perform
+# the action again.
+
+logging:
+  debug: false
+
+jobs:
+  - name: echo-repetition
+    command: echo hello repetition
+    count: 2
+    nodes: 1
+  - name: echo-backoff
+    command: echo hello backoff
+    count: 1
+    nodes: 1
+  - name: sleep
+    command: sleep 10
+    count: 5
+    nodes: 1
+
+rules:
+  # 1. This rule says to submit the sleep jobs when we start
+  # Start only happens once, so repetitions doesn't make sense here -
+  # the event trigger will not happen again.
+  - trigger: start
+    action:
+      name: submit
+      label: sleep
+
+  # 2. Submit "echo-repetition" up to three times (repetitions) if a sleep job finishes
+  # Note that since the job group has count 2, this means 2 x 3 == 6 jobs total
+  - trigger: job-finish
+    name: sleep
+    action:
+      repetitions: 3
+      name: submit
+      label: echo-repetition
+
+  # 3. Submit "echo-backoff" up to three times with a backoff of 2 (repetitions) if a sleep job finishes
+  - trigger: job-finish
+    name: sleep
+    action:
+      repetitions: 3
+      backoff: 2
+      name: submit
+      label: echo-backoff

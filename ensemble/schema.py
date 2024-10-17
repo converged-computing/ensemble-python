@@ -16,6 +16,11 @@ ensemble_config_schema = {
         "additionalProperties": False,
     },
     "definitions": {
+        "logging": {
+            "type": "object",
+            "properties": {"debug": {"type": "boolean", "default": False}},
+            "additionalProperties": False,
+        },
         "jobs": {
             "type": ["array"],
             "items": {

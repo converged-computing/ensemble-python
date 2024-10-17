@@ -31,6 +31,26 @@ class EnsembleConfig:
         # Cache of action names
         self.actions = set()
 
+    @property
+    def debug_logging(self):
+        return self._cfg.get("logging", {}).get("debug") is True
+
+    def pretty_job(self, name):
+        """
+        Pretty print a job (for the logger) across a single line
+        """
+        if name not in self.jobs:
+            raise ValueError(f'job with name "{name}" is not known')
+
+        # Each job group can have more than one set
+        result = ""
+        jobs = self.jobs[name]
+        for i, job in enumerate(jobs):
+            result += "".join(f"({k}:{v})," for k, v in job.items())
+            if len(jobs) > 1 and i != len(jobs) - 1:
+                result += "\n"
+        return result.strip(",")
+
     def check_supported(self, supported):
         """
         Check that all rules all supported
@@ -38,7 +58,7 @@ class EnsembleConfig:
         supported = set(supported)
         for trigger in self.rules:
             if trigger not in supported:
-                raise ValueError(f"Rule trigger '{trigger}' is not supported by {self.name}")
+                raise ValueError(f"Rule trigger '{trigger}' is not supported.")
 
     def iter_jobs(self, label=None):
         """
@@ -85,7 +105,7 @@ class Rule:
 
     @property
     def name(self):
-        return self._rule["name"]
+        return self.trigger
 
     @property
     def trigger(self):
@@ -114,13 +134,73 @@ class Action:
     def __init__(self, action):
         self._action = action
 
-        # All actions start not being run. By default, we assume
-        # they should be run once. This can change.
-        self.performed = False
+        # We parse this because the value will change
+        # and we don't want to destroy the original setting
+        self.parse_frequency()
+
+    def parse_frequency(self):
+        """
+        Parse the action frequency, which by default, is to run
+        it once. An additional backoff period (number of periods to skip)
+        can also be provided.
+        """
+        self.repetitions = self._action.get("repetitions", 1)
+
+        # Backoff between repetitions (this is global setting)
+        # Setting to None indicates backoff is not active
+        self.backoff = self._action.get("backoff")
+
+        # Counter between repetitions
+        self.backoff_counter = 0
+
+    def perform(self):
+        """
+        Return True or False to indicate performing an action.
+        """
+        # If we are out of repetitions, no matter what, we don't run
+        if self.finished:
+            return False
+
+        # The action is flagged to have some total backoff periods between repetitions
+        if self.backoff is not None and self.backoff >= 0:
+            return self.perform_backoff()
+
+        # If we get here, backoff is not set (None) and repetitions > 0
+        self.repetitions -= 1
+        return True
+
+    def perform_backoff(self):
+        """
+        Perform backoff (going through the logic of checking the
+        period we are on, and deciding to run or not, and decrementing
+        counters) to return a boolean if we should run the action or not.
+        """
+        # But we are still going through a period
+        if self.backoff_counter > 0:
+            self.backoff_counter -= 1
+            return False
+
+        # The backoff counter has expired - it is zero here
+        # reset the counter to the original value
+        self.backoff_counter = self.backoff
+
+        # Decrement repetitions
+        self.repetitions -= 1
+
+        # And signal to run the action
+        return True
 
     @property
     def name(self):
         return self._action.get("name")
+
+    @property
+    def finished(self):
+        """
+        An action is finished when it has no more repetitions
+        It should never go below zero, in practice.
+        """
+        return self.repetitions <= 0
 
     @property
     def label(self):
