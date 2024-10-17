@@ -16,6 +16,7 @@ ensemble_config_schema = {
         "additionalProperties": False,
     },
     "definitions": {
+        "custom": {"type": "string"},
         "logging": {
             "type": "object",
             "properties": {"debug": {"type": "boolean", "default": False}},

@@ -1,7 +1,6 @@
 import ensemble.config as cfg
 from ensemble.members.metrics import QueueMetrics
 from ensemble.logger import LogColors
-import sys
 
 # Examples for status in the future
 # "{LogColors.OKBLUE}{js.name}{LogColors.ENDC} {LogColors.RED}NOT OK{LogColors.ENDC}"                    )
@@ -45,7 +44,7 @@ class MemberBase:
         for rule in self.cfg.rules[name]:
             yield rule
 
-    def execute_rule(self, rule):
+    def execute_rule(self, rule, record=None):
         """
         Given a rule and associated action extracted, run it!
         """
@@ -58,7 +57,7 @@ class MemberBase:
             return self.execute_metric_action(rule)
 
         # Do we want to submit a job?
-        self.execute_action(rule)
+        self.execute_action(rule, record)
 
     def announce(self, message, meta=None, ljust=15, color="cyan"):
         """
@@ -77,7 +76,7 @@ class MemberBase:
         if meta is not None:
             print(f"{LogColors.PURPLE}{meta}{LogColors.ENDC}".ljust(10))
 
-    def execute_action(self, rule):
+    def execute_action(self, rule, record=None):
         """
         Execute a general action, it's assumed that
         the trigger was called if we get here.
@@ -89,20 +88,16 @@ class MemberBase:
         if not rule.action.perform():
             return
 
+        self.announce(f" => trigger {rule.name}", color="blue")
         if rule.action.name == "submit":
-            self.announce(f" => trigger {rule.name}", color="blue")
-            self.announce(
-                f"   ⭐️ submit {rule.action.label} ", self.cfg.pretty_job(rule.action.label)
-            )
-            return self.submit(rule.action)
+            self.announce(f"   submit {rule.action.label} ", self.cfg.pretty_job(rule.action.label))
+            return self.submit(rule, record)
 
-        print("ANOTHER ACTION")
-        import IPython
+        if rule.action.name == "custom":
+            self.announce(f"   custom {rule.action.label}")
+            self.custom_action(rule, record)
 
-        IPython.embed()
-        sys.exit()
-
-    def execute_metric_action(self, rule):
+    def execute_metric_action(self, rule, record=None):
         """
         Execute a metric action.
         """
@@ -119,7 +114,7 @@ class MemberBase:
             return
         if self.cfg.debug_logging:
             print(self.metrics.models)
-        return self.execute_action(rule)
+        return self.execute_action(rule, record)
 
     def validate_rules(self):
         """
@@ -142,6 +137,9 @@ class MemberBase:
         """
         Submit a job
         """
+        raise NotImplementedError
+
+    def custom_action(self, rule, record=None):
         raise NotImplementedError
 
     def submit(self, *args, **kwargs):
