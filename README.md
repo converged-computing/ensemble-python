@@ -28,7 +28,8 @@ This design will be translated into more consolidated design documentation. For 
 - **Ensemble Service**: provides grpc endpoints for one or more ensemble members to communicate with. This is an explicit design decision that, for example, would allow deploying one service that is orchestrating multiple things at once.
 - **Rules**: A rule is composed of a trigger and action to take, and this is what drives the ensemble, more akin to a state machine than a traditional workflow DAG because the structure can be unknown at the start. For example, you might say "on the start of the ensemble, submit these jobs with label X."
 - **Triggers**: A trigger is part of a rule (described above) and in the configuration file, and can be read as "when this trigger happens, do this action."
-- **Action**: An actual is an operation that is the result of hitting a trigger condition. It is typically performed by the queue, and thus must be known to it. Example actions include submit, scale-up, scale-down, or terminate.
+- **Action**: An actual is an operation that is the result of hitting a trigger condition. One type of action is performed by the queue, and are known to it. For example, queue actions include submit, scale-up, scale-down, or terminate. Actions are typically called by triggers under rules. Actions can be customized, and these are called custom actions. 
+- **Plugins**: A plugin is a collection of custom actions that are typically associated with a particular application. For example, a plugin for LAMMPS might know how to check LAMMPS output and act on a specific parsing of a result. Plugins are used equivalently to custom functions, and can accept arguments.
 - **Metrics** are summary metrics collected for groups of jobs, for customized algorithms. To support this, we use online (or streaming) ML algorithms for things like mean, IQR, etc. While there could be a named entity called an algorithm, since it's just a set of rules (triggers and actions) that means we don't need to explicitly define them (yet). I can see at some point creating "packaged" rule sets that are called that.
 
 #### Rules
@@ -314,6 +315,14 @@ python3 -m ensemble.members.flux
 - If the output data of lammps (or some app) looks one one, do action X. Otherwise Y. We could use "plugins" that provide custom actions here that are app specific.
 - Real world use case is AMS - running either surrogate or multi-physics model. whenever runs the physics model, saves the input/output pairs and uses them to retrain. "Under what conditions would AMS need to start training." We would also want to look at cases with conditional logic.
 - Flux operator - implement with grpc, and set duration criteria to grow until we reach. As example, could look at queue wait times - "This job is running too long, run lammps with 8 instead of 16." In simpler terms, if my rate of job completions is too low then I want more resources. High level, we want to change the per job shape based on amount of ime to run the job
+
+#### Thinking through service design
+
+1. The ensemble (python) would be started as a MiniCluster in a Kubernetes Cluster.
+2. The ensemble operator would be in charge of creating the MiniCluster, along with a pod that orchestrates the service (the ensemble-service grpc)
+3. To start there would be one ensemble running per Ensemble Operator CRD (but could be multiple)
+4. We would only want the service to ping the operator when the MiniCluster needs to change (scale, etc).
+5. This means that when we create the service and MiniCluster, each needs to know about one another (the address)
 
 ## License
 

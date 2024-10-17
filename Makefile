@@ -1,5 +1,6 @@
 # Image URL to use all building/pushing image targets
 IMG ?= ghcr.io/converged-computing/ensemble-python
+ARMIMG ?= ghcr.io/converged-computing/ensemble-python:arm
 
 .PHONY: python
 python: python ## Generate python proto files in python
@@ -11,6 +12,22 @@ python: python ## Generate python proto files in python
 	python -m grpc_tools.protoc -I./protos --python_out=./ensemble/protos --pyi_out=./ensemble/protos --grpc_python_out=./ensemble/protos ./protos/ensemble-service.proto
 	protoc -I=./protos --python_out=./ensemble/protos ./protos/ensemble-service.proto
 	sed -i 's/import ensemble_service_pb2 as ensemble__service__pb2/from . import ensemble_service_pb2 as ensemble__service__pb2/' ./ensemble/protos/ensemble_service_pb2_grpc.py
+
+.PHONY: docker-build
+docker-build: test ## Build docker image with the manager.
+	docker build -t ${IMG} .
+
+.PHONY: arm-build
+arm-build: test ## Build docker image with the manager.
+	docker buildx build --platform linux/arm64 -t ${ARMIMG} .
+
+.PHONY: arm-deploy
+arm-deploy: manifests kustomize
+	docker buildx build --platform linux/arm64 --push -t ${ARMIMG} .
+
+.PHONY: docker-push
+docker-push: ## Push docker image with the manager.
+	docker push ${IMG}
 
 # Setting SHELL to bash allows bash commands to be executed by recipes.
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
