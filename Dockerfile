@@ -21,4 +21,7 @@ COPY . .
 RUN python3 -m pip install --break-system-packages -r requirements.txt && \
     ln -s $(which python3) /usr/bin/python && make && \
     python3 -m pip install --break-system-packages  -e .
-CMD ["ensemble-server"]
+
+# ensemble-server start --workers 10 --port <port>
+ENTRYPOINT ["ensemble-server"]
+CMD ["start"]
