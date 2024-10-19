@@ -5,16 +5,14 @@ RUN apt-get update && apt-get install -y \
     wget git vim build-essential iputils-ping postgresql-client curl \
     python3-pip unzip
 
-# Install Go
-ENV GO_VERSION=1.22.5
-RUN wget https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz  && tar -xvf go${GO_VERSION}.linux-amd64.tar.gz && \
-         mv go /usr/local && rm go${GO_VERSION}.linux-amd64.tar.gz
+# Or for arm: aarch_64
+ARG ARCH=x86_64
+ENV ARCH=${ARCH}
 
 RUN PB_REL="https://github.com/protocolbuffers/protobuf/releases" && \
-    curl -LO $PB_REL/download/v25.1/protoc-25.1-linux-x86_64.zip && \
-    unzip protoc-25.1-linux-x86_64.zip -d /usr/local
+    curl -LO $PB_REL/download/v28.2/protoc-28.2-linux-${ARCH}.zip && \
+    unzip protoc-28.2-linux-${ARCH}.zip -d /usr/local
 
-ENV PATH=$PATH:/usr/local/go/bin
 WORKDIR /code
 COPY . .
 
