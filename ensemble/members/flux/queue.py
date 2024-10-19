@@ -93,13 +93,19 @@ class FluxQueue(MemberBase):
     def name(self):
         return "FluxQueue"
 
+    def terminate(self):
+        """
+        Custom termination function for flux.
+        """
+        self.handle.reactor_stop()
+
     def record_metrics(self, record):
         """
         Parse a Flux event and record metrics for the group.
         """
         # If we are picking up a queue backlog, we might be missing the id
-        # An alternative would be to assume the job isn't of interest and
-        # return early, but let's assume it is for now.
+        # We have to assume we are only interested in the context that is
+        # seen by the ensemble runner.
         if record["id"] not in self.jobids:
             return
 
@@ -126,8 +132,6 @@ class FluxQueue(MemberBase):
         # with metric event updates. This is usually counts, etc.
         for rule in self.iter_rules("metric"):
             self.execute_rule(rule, record)
-
-        # TODO custom triggers -> actions!
 
     def record_start_metrics(self, event, record):
         """

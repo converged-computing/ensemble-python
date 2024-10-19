@@ -29,6 +29,14 @@ class MemberBase:
     def name(self):
         raise NotImplementedError
 
+    def terminate(self):
+        """
+        Custom termination function
+
+        Often the executor needs custom logic to work.
+        """
+        pass
+
     def record_metrics(self, event):
         """
         Record group metrics for the event.
@@ -95,7 +103,13 @@ class MemberBase:
 
         if rule.action.name == "custom":
             self.announce(f"   custom {rule.action.label}")
-            self.custom_action(rule, record)
+            return self.custom_action(rule, record)
+
+        # Note that terminate exits but does not otherwise touch
+        # the queue, etc. Given a reactor, we should just stop it
+        if rule.action.name == "terminate":
+            self.announce("   terminate ensemble session")
+            self.terminate()
 
     def execute_metric_action(self, rule, record=None):
         """

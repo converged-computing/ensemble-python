@@ -1,4 +1,4 @@
-valid_actions = ["submit", "custom"]
+import ensemble.defaults as defaults
 
 
 class Rule:
@@ -29,7 +29,7 @@ class Rule:
         Validate the rule and associated action
         """
         # Is the action name valid?
-        if self.action.name not in valid_actions:
+        if self.action.name not in defaults.valid_actions:
             raise ValueError(
                 f"Rule trigger {self.trigger} has invalid action name {self.action.name}"
             )
