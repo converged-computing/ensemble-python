@@ -1,6 +1,6 @@
 import ensemble.config as cfg
-from ensemble.members.metrics import QueueMetrics
 from ensemble.logger import LogColors
+from ensemble.members.metrics import QueueMetrics
 
 # Examples for status in the future
 # "{LogColors.OKBLUE}{js.name}{LogColors.ENDC} {LogColors.RED}NOT OK{LogColors.ENDC}"                    )

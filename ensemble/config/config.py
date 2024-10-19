@@ -1,13 +1,14 @@
+import importlib
+import os
+import random
+import shutil
+
 import jsonschema
 
 import ensemble.utils as utils
 from ensemble import schema
-from ensemble.logger.generate import JobNamer
 from ensemble.config.types import Rule
-import shutil
-import importlib
-import random
-import os
+from ensemble.logger.generate import JobNamer
 
 # Right now assume all executors have the same actions
 script_template = """from ensemble.config.types import Action, Rule
