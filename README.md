@@ -66,6 +66,7 @@ Note that yes, this means "submit" is both an action and an event.
 The design of a rule is to have an action, and the action is something your ensemble can be tasked to do when an event is triggered. Right now we support the following:
 
 - **submit**: submit a job
+- **terminate**: terminate the member. This is usually what you want to call to have the entire thing exit on 0
 - **custom**: run a custom function that will receive known kwargs, and then should return an action (read more below)
 
 We see "submit" as two examples in the above, which is a common thing you'd want to do! For each action, you should minimally define the "name" and a "label" that typically corresponds to a job group.
@@ -161,6 +162,9 @@ ensemble run examples/backoff-example.yaml
 
 # This shows a custom action
 ensemble run examples/custom-action-example.yaml
+
+# This shows termination, which is necessary for when you want an exit
+ensemble run examples/terminate-example.yaml
 ```
 
 Right now, this will run any rules with "start" triggers, which for this hello world example includes a few hello world jobs! You'll then be able to watch and see flux events coming in!

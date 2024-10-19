@@ -23,7 +23,7 @@ RUN curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v28.2
 
 # For easier Python development.
 RUN python3 -m pip install IPython && \
-    python3 -m pip install -r /requirements.txt
+    python3 -m pip install -r /requirements.txt && \
     python3 -m pip install -r /dev-requirements.txt
 
 # Assuming installing to /usr/local

@@ -1,0 +1,39 @@
+# Termination is necessary if you want the event loop to end (and exit with 0)
+logging:
+  debug: false
+
+# I made these the size of the cluster so we trigger scaling at least once
+# We currently assume these are uniform (so no order enforced beyond the listing here)
+jobs:
+  - name: echo
+    command: echo hello world
+    count: 5
+    nodes: 1
+  - name: sleep
+    command: sleep 10
+    count: 5
+    nodes: 1
+
+rules:
+  # 1. This rule says to submit the sleep jobs when we start
+  - trigger: start
+    action:
+      name: submit
+      label: sleep
+
+  # This says to submit the echo hello world jobs when we have 3
+  # successfully completed sleep jobs. This dot notation is a path into the
+  # models data structure.
+  - trigger: metric
+    name: count.sleep.success
+    when: 3
+    action:
+      name: submit
+      label: echo
+
+  # Terminate when we have 5 successful echo jobs
+  - trigger: metric
+    name: count.echo.success
+    when: 5
+    action:
+      name: terminate
