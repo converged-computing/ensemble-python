@@ -1,4 +1,5 @@
 from river import stats
+
 import ensemble.utils as utils
 
 model_inits = {

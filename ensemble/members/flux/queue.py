@@ -8,7 +8,6 @@ try:
     import flux
     import flux.constants
     import flux.job
-    import flux.rpc
 except ImportError:
     sys.exit("flux python is required to use the flux queue member")
 
@@ -98,6 +97,12 @@ class FluxQueue(MemberBase):
         """
         Parse a Flux event and record metrics for the group.
         """
+        # If we are picking up a queue backlog, we might be missing the id
+        # An alternative would be to assume the job isn't of interest and
+        # return early, but let's assume it is for now.
+        if record["id"] not in self.jobids:
+            self.jobids[record["id"]] = {}
+
         # This should only be one after the sentinal, but we will not assume
         for event in record.get("events", []):
             # Skip these events... but note that alloc has the R in it
