@@ -19,11 +19,11 @@ docker-build:
 
 .PHONY: arm-build
 arm-build:
-	docker buildx build --platform linux/arm64 -t ${ARMIMG} .
+	docker buildx build --platform linux/arm64 --build-arg ARCH=aarch_64 -t ${ARMIMG} .
 
 .PHONY: arm-deploy
 arm-deploy:
-	docker buildx build --platform linux/arm64 --push -t ${ARMIMG} .
+	docker buildx build --platform linux/arm64 --build-arg ARCH=aarch_64 --push -t ${ARMIMG} .
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.

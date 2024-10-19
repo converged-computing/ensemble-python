@@ -101,7 +101,7 @@ class FluxQueue(MemberBase):
         # An alternative would be to assume the job isn't of interest and
         # return early, but let's assume it is for now.
         if record["id"] not in self.jobids:
-            self.jobids[record["id"]] = {}
+            return
 
         # This should only be one after the sentinal, but we will not assume
         for event in record.get("events", []):
