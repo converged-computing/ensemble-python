@@ -32,6 +32,27 @@ This design will be translated into more consolidated design documentation. For 
 - **Plugins**: A plugin is a collection of custom actions that are typically associated with a particular application. For example, a plugin for LAMMPS might know how to check LAMMPS output and act on a specific parsing of a result. Plugins are used equivalently to custom functions, and can accept arguments.
 - **Metrics** are summary metrics collected for groups of jobs, for customized algorithms. To support this, we use online (or streaming) ML algorithms for things like mean, IQR, etc. While there could be a named entity called an algorithm, since it's just a set of rules (triggers and actions) that means we don't need to explicitly define them (yet). I can see at some point creating "packaged" rule sets that are called that.
 
+
+#### Logging
+
+By default, we have a pretty printed set of the "main" events (triggers and submissions). However, to see ALL events from Flux (good for debugging) you can turn them on:
+
+```yaml
+logging:
+  debug: true
+```
+
+To set the event heartbeat to fire at some increment, set it:
+
+```yaml
+logging:
+  debug: true
+  heartbeat: 60
+```
+
+Note that by default it is turned off (set to 0 seconds) unless you include a grow or shrink action. In that case, it turns on and defaults to 60, unless you've specified another interval.
+If you have grow/shrink and explicitly turn it off, it will still default to 60 seconds, because grow/shrink won't work as expected without the heartbeat.
+
 #### Rules
 
 A rule defines a trigger and action to take. The library is event driven, meaning that the queue is expected to send events, and we don't do any polling.
@@ -79,9 +100,11 @@ The design of a rule is to have an action, and the action is something your ense
 For the scale operations, since this brings in the issue of resource contention between different ensembles, we have to assume to start that a request to scale:
 
 1. Should only happen once. If it's granted, great, if not, we aren't going to ask again.
-2. Does not need to consider another level of scheduler (e.g., fair shaire)
+2. Does not need to consider another level of scheduler (e.g., fair share)
 
 I started thinking about putting a second scheduler (or fair share algorithm) in the grpc service, but realized this was another level of complexity that although we might work on it later, is not warranted yet.
+Also note that since scale operation triggers might not be linked to job events (e.g., if we want to trigger when a job group has been in the queue for too long) we added support for a heartbeat. The heartbeat
+isn't a trigger in and of itself, but when it runs, it will run through rules that are relevant to queue metrics.
 We see "submit" as two examples in the above, which is a common thing you'd want to do! For each action, you should minimally define the "name" and a "label" that typically corresponds to a job group.
 You can also optionally define "repetitions," which are the number of times the action should be run before expiring. If you want a backoff period between repetitions, set "backoff" to a non zero value.
 By default, when no repetitions or backoff are set, the action is assumed to have a repetition of 1. It will be run once! Let's now look at a custom action. Here is what your function should look like in your `ensemble.yaml`
@@ -177,6 +200,10 @@ ensemble run examples/custom-action-example.yaml
 
 # This shows termination, which is necessary for when you want an exit
 ensemble run examples/terminate-example.yaml
+
+# Run a heartbeat every 3 seconds.
+# This will trigger a check to see if actions need to be performed
+ensemble run examples/heartbeat-example.yaml
 ```
 
 Right now, this will run any rules with "start" triggers, which for this hello world example includes a few hello world jobs! You'll then be able to watch and see flux events coming in!

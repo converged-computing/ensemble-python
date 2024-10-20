@@ -63,7 +63,6 @@ class FluxQueue(MemberBase):
         include_inactive=False,
         refresh_interval=0,
         summary_frequency=10,
-        heartbeat_seconds=60,
         **kwargs,
     ):
         """
@@ -73,7 +72,6 @@ class FluxQueue(MemberBase):
         job_filters (dict)     : key value pairs for attributes or states to filter jobs to
         include_inactive (bool): consider and include inactive jobs when doing initial parse
         refresh_interval (int) : number of seconds to refresh all metrics (0 indicates no refresh)
-        heartbeat_seconds (int): number of seconds to heartbeat (for grow/shrink). This defaults
         to 60 seconds. If you set to 0, it will not be set.
         """
         # Filter jobs to any attributes, states, or similar.
@@ -85,7 +83,6 @@ class FluxQueue(MemberBase):
         # How often on job completions to summarize?
         self.summary_freqency = summary_frequency
         self.completion_counter = 0
-        self.heartbeat_seconds = heartbeat_seconds
 
         # The flux sentinel tells us when we have finished with the backlog
         # https://github.com/flux-framework/flux-core/blob/master/src/modules/job-manager/journal.c#L28-L33
@@ -104,7 +101,7 @@ class FluxQueue(MemberBase):
         Custom termination function for flux.
         """
         self.handle.reactor_stop()
-        if self.heartbeat_seconds:
+        if self.cfg.heartbeat:
             self.heartbeat.stop()
 
     def record_metrics(self, record):
@@ -283,7 +280,7 @@ class FluxQueue(MemberBase):
         """
         Setup the heartbeat - a threading.Thread
         """
-        if not self.heartbeat_seconds:
+        if not self.cfg.heartbeat:
             return
 
         def heartbeat_callback(cls):
@@ -291,7 +288,7 @@ class FluxQueue(MemberBase):
             print(cls)
 
         # Instead we are using threading, which works!
-        self.heartbeat = QueueHeartbeat(self.heartbeat_seconds, heartbeat_callback, cls=self)
+        self.heartbeat = QueueHeartbeat(self.cfg.heartbeat, heartbeat_callback, cls=self)
         self.heartbeat.start()
 
     def cron_heartbeat(self):
@@ -305,14 +302,14 @@ class FluxQueue(MemberBase):
 
         # Create a cron heartbeat every N seconds, only if we have a heartbeat set
         # This is intended for grow/shrink actions that might need a regular check
-        print(f"  💗 Creating flux heartbeat every {self.heartbeat_seconds} seconds")
+        print(f"  💗 Creating flux heartbeat every {self.cfg.heartbeat} seconds")
         heartbeat = self.handle.rpc(
             "cron.create",
             {
                 "type": "interval",
                 "name": "heartbeat",
                 "command": "sleep 0",
-                "args": {"interval": self.heartbeat_seconds},
+                "args": {"interval": self.cfg.heartbeat},
             },
             flux.constants.FLUX_NODEID_ANY,
             flags=flux.constants.FLUX_RPC_STREAMING,

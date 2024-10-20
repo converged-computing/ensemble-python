@@ -19,7 +19,10 @@ ensemble_config_schema = {
         "custom": {"type": "string"},
         "logging": {
             "type": "object",
-            "properties": {"debug": {"type": "boolean", "default": False}},
+            "properties": {
+                "debug": {"type": "boolean", "default": False},
+                "heartbeat": {"type": "number"},
+            },
             "additionalProperties": False,
         },
         "jobs": {
