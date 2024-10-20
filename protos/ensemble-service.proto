@@ -4,33 +4,23 @@ package convergedcomputing.org.grpc.v1;
 option go_package = "github.com/converged-computing/ensemble-python/protos";
 
 service EnsembleOperator {
-    rpc RequestUpdate(UpdateRequest) returns (Response);
     rpc RequestStatus(StatusRequest) returns (Response);
     rpc RequestAction(ActionRequest) returns (Response);
 }
 
-// StatusRequest asks to see the status of the queue and jobs
+// StatusRequest asks to see the status of the ensemble
+// as seen by the operator
 message StatusRequest {
 
     // This is the ensemble member type (e.g., minicluster)
     string member = 1;
-    string algorithm = 2;
-}
-
-// UpdateRequest sends over initial data (or updates) to the ensemble member
-message UpdateRequest {
-    string member = 1;
-    string algorithm = 2;
-    string options = 3;
-    string payload = 4;
 }
 
 // ActionRequest requests an action
 message ActionRequest {
     string member = 1;
-    string algorithm = 2;
-    string action = 3;
-    string payload = 4;
+    string action = 2;
+    string payload = 3;
 }
 
 message Response {

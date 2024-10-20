@@ -65,14 +65,26 @@ Note that yes, this means "submit" is both an action and an event.
 
 The design of a rule is to have an action, and the action is something your ensemble can be tasked to do when an event is triggered. Right now we support the following:
 
-- **submit**: submit a job
-- **terminate**: terminate the member. This is usually what you want to call to have the entire thing exit on 0
-- **custom**: run a custom function that will receive known kwargs, and then should return an action (read more below)
+**Flux and MiniCluster**
 
+- *submit*: submit a job
+- *terminate*: terminate the member. This is usually what you want to call to have the entire thing exit on 0
+- *custom*: run a custom function that will receive known kwargs, and then should return an action (read more below)
+
+**MiniCluster Only**
+
+- *grow*: grow (or request) the cluster to scale up
+- *shrink*: shrink (or request) the cluster to scale down
+
+For the scale operations, since this brings in the issue of resource contention between different ensembles, we have to assume to start that a request to scale:
+
+1. Should only happen once. If it's granted, great, if not, we aren't going to ask again.
+2. Does not need to consider another level of scheduler (e.g., fair shaire)
+
+I started thinking about putting a second scheduler (or fair share algorithm) in the grpc service, but realized this was another level of complexity that although we might work on it later, is not warranted yet.
 We see "submit" as two examples in the above, which is a common thing you'd want to do! For each action, you should minimally define the "name" and a "label" that typically corresponds to a job group.
 You can also optionally define "repetitions," which are the number of times the action should be run before expiring. If you want a backoff period between repetitions, set "backoff" to a non zero value.
 By default, when no repetitions or backoff are set, the action is assumed to have a repetition of 1. It will be run once! Let's now look at a custom action. Here is what your function should look like in your `ensemble.yaml`
-
 
 ##### Actions
 

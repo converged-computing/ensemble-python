@@ -12,6 +12,9 @@ import ensemble.metrics as m
 from ensemble.protos import ensemble_service_pb2
 from ensemble.protos import ensemble_service_pb2_grpc as api
 
+# TODO what metrics do we want on the level of the grpc server?
+# probably something eventually related to fair share between ensembles?
+
 
 def get_parser():
     parser = argparse.ArgumentParser(
@@ -55,54 +58,21 @@ class EnsembleEndpoint(api.EnsembleOperatorServicer):
         """
         Request information about queues and jobs.
         """
-        global cache
-        global metrics
-
+        print(request)
         print(context)
-        print(f"Member type: {request.member}")
-
-        # Record count of check to our cache
-        self.record_event("status")
 
         # This will raise an error if the member type (e.g., minicluster) is not known
         member = members.get_member(request.member)
+        print(member)
 
         # If the flux handle didn't work, this might error
         try:
-            payload = member.status()
+            payload = json.loads(request.payload)
         except Exception as e:
             print(e)
             return ensemble_service_pb2.Response(
                 status=ensemble_service_pb2.Response.ResultType.ERROR
             )
-
-        # Prepare counts for the payload
-        payload["counts"] = {}
-
-        # Add the count of status checks to our payload
-        payload["counts"]["status"] = self.get_event("status", 0)
-
-        # Increment by 1 if we are still inactive, otherwise reset
-        # note that we don't send over an actual inactive count, inactive here is the
-        # period, largely because we don't need it. This isn't true for waiting
-        increment, reset = member.count_inactive(payload["queue"])
-        payload["counts"]["inactive"] = self.count_inactive_periods(increment, reset)
-
-        # Increment by 1 if number waiting is the same or greater
-        waiting_jobs = member.count_waiting(payload["queue"])
-        payload["counts"]["waiting_periods"] = self.count_waiting_periods(payload["counts"])
-
-        # This needs to be updated after so the cache has the previous waiting for the call above
-        payload["counts"]["waiting"] = waiting_jobs
-
-        # Finally, keep track of number of periods that we have free nodes increasing
-        payload["counts"]["free_nodes"] = self.count_free_nodes_increasing_periods(payload["nodes"])
-
-        # Always update the last timestamp when we do a status
-        metrics.tick()
-        payload["metrics"] = metrics.to_dict()
-        print(json.dumps(payload))
-
         return ensemble_service_pb2.Response(
             payload=json.dumps(payload),
             status=ensemble_service_pb2.Response.ResultType.SUCCESS,
@@ -112,7 +82,7 @@ class EnsembleEndpoint(api.EnsembleOperatorServicer):
         """
         Request an action is performed according to an algorithm.
         """
-        print(f"Algorithm {request.algorithm}")
+        print(f"Member {request.member}")
         print(f"Action {request.action}")
         print(f"Payload {request.payload}")
 
@@ -122,32 +92,19 @@ class EnsembleEndpoint(api.EnsembleOperatorServicer):
 
         # The member primarily is directed to take the action
         member = members.get_member(request.member)
-        if request.action == "submit":
-            try:
-                member.submit(request.payload)
-            except Exception as e:
-                print(e)
-                response.status = ensemble_service_pb2.Response.ResultType.ERROR
+        print(member)
+
+        if request.action == "grow":
+            print("REQUEST TO GROW")
+            # response.status = ensemble_service_pb2.Response.ResultType.ERROR
 
         # Reset a counter, typically after an update event
-        elif request.action == "resetCounter":
-            try:
-                self.reset_counter(request.payload)
-            except Exception as e:
-                print(e)
-                response.status = ensemble_service_pb2.Response.ResultType.ERROR
+        elif request.action == "shrink":
+            print("REQUEST TO SHRINK")
 
         # This can give a final dump / view of job info
-        elif request.action == "jobinfo":
-            try:
-                infos = member.job_info()
-                if infos:
-                    print(json.dumps(infos, indent=4))
-                    response.payload = json.dumps(infos)
-            except Exception as e:
-                print(e)
-                response.status = ensemble_service_pb2.Response.ResultType.ERROR
-
+        else:
+            print("UNKNOWN REQUEST")
         return response
 
 

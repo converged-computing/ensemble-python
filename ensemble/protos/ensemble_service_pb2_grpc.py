@@ -5,7 +5,7 @@ import warnings
 
 from . import ensemble_service_pb2 as ensemble__service__pb2
 
-GRPC_GENERATED_VERSION = '1.66.2'
+GRPC_GENERATED_VERSION = '1.67.0'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -34,11 +34,6 @@ class EnsembleOperatorStub(object):
         Args:
             channel: A grpc.Channel.
         """
-        self.RequestUpdate = channel.unary_unary(
-                '/convergedcomputing.org.grpc.v1.EnsembleOperator/RequestUpdate',
-                request_serializer=ensemble__service__pb2.UpdateRequest.SerializeToString,
-                response_deserializer=ensemble__service__pb2.Response.FromString,
-                _registered_method=True)
         self.RequestStatus = channel.unary_unary(
                 '/convergedcomputing.org.grpc.v1.EnsembleOperator/RequestStatus',
                 request_serializer=ensemble__service__pb2.StatusRequest.SerializeToString,
@@ -53,12 +48,6 @@ class EnsembleOperatorStub(object):
 
 class EnsembleOperatorServicer(object):
     """Missing associated documentation comment in .proto file."""
-
-    def RequestUpdate(self, request, context):
-        """Missing associated documentation comment in .proto file."""
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
 
     def RequestStatus(self, request, context):
         """Missing associated documentation comment in .proto file."""
@@ -75,11 +64,6 @@ class EnsembleOperatorServicer(object):
 
 def add_EnsembleOperatorServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'RequestUpdate': grpc.unary_unary_rpc_method_handler(
-                    servicer.RequestUpdate,
-                    request_deserializer=ensemble__service__pb2.UpdateRequest.FromString,
-                    response_serializer=ensemble__service__pb2.Response.SerializeToString,
-            ),
             'RequestStatus': grpc.unary_unary_rpc_method_handler(
                     servicer.RequestStatus,
                     request_deserializer=ensemble__service__pb2.StatusRequest.FromString,
@@ -100,33 +84,6 @@ def add_EnsembleOperatorServicer_to_server(servicer, server):
  # This class is part of an EXPERIMENTAL API.
 class EnsembleOperator(object):
     """Missing associated documentation comment in .proto file."""
-
-    @staticmethod
-    def RequestUpdate(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
-        return grpc.experimental.unary_unary(
-            request,
-            target,
-            '/convergedcomputing.org.grpc.v1.EnsembleOperator/RequestUpdate',
-            ensemble__service__pb2.UpdateRequest.SerializeToString,
-            ensemble__service__pb2.Response.FromString,
-            options,
-            channel_credentials,
-            insecure,
-            call_credentials,
-            compression,
-            wait_for_ready,
-            timeout,
-            metadata,
-            _registered_method=True)
 
     @staticmethod
     def RequestStatus(request,

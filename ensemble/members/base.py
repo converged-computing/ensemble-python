@@ -87,7 +87,9 @@ class MemberBase:
     def execute_action(self, rule, record=None):
         """
         Execute a general action, it's assumed that
-        the trigger was called if we get here.
+        the trigger was called if we get here. Those supported by
+        Flux and the MiniCluster: submit, custom, terminate.
+        MiniCluster Only: shrink and grow.
         """
         # This function checks for repetitions and backoff
         # periods, and determines if we should continue (to run)
@@ -101,9 +103,15 @@ class MemberBase:
             self.announce(f"   submit {rule.action.label} ", self.cfg.pretty_job(rule.action.label))
             return self.submit(rule, record)
 
-        if rule.action.name == "custom":
-            self.announce(f"   custom {rule.action.label}")
-            return self.custom_action(rule, record)
+        # These all have the same logic to call the function of the same name
+        if rule.action.name in ["custom", "grow", "shrink"]:
+            run_action = getattr(self, rule.action.name, None)
+
+            # Not supported if the function does not exist
+            if not run_action:
+                raise NotImplementedError("Action {rule.action.name} is not supported.")
+            self.announce(f"   {rule.action.name} {rule.action.label}")
+            run_action(rule, record)
 
         # Note that terminate exits but does not otherwise touch
         # the queue, etc. Given a reactor, we should just stop it
@@ -151,9 +159,6 @@ class MemberBase:
         """
         Submit a job
         """
-        raise NotImplementedError
-
-    def custom_action(self, rule, record=None):
         raise NotImplementedError
 
     def submit(self, *args, **kwargs):
