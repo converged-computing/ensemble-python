@@ -1,3 +1,5 @@
+import json
+
 import ensemble.members.auth as auth
 from ensemble.protos import ensemble_service_pb2, ensemble_service_pb2_grpc
 
@@ -17,20 +19,17 @@ class EnsembleClient:
         self.host = host
         self.use_ssl = use_ssl
 
-    def update_request(self, member, action, payload):
+    def action_request(self, member, action, payload):
         """
-        Send an update request to the grpc server.
+        Send an action request to the grpc server.
         """
+        payload = json.dumps(payload)
+
         # These are submit variables. A more substantial submit script would have argparse, etc.
-        request = ensemble_service_pb2.UpdateRequest(member=member, action=action, payload=payload)
+        request = ensemble_service_pb2.ActionRequest(member=member, action=action, payload=payload)
 
         with auth.grpc_channel(self.host, self.use_ssl) as channel:
             stub = ensemble_service_pb2_grpc.EnsembleOperatorStub(channel)
-            response = stub.ReceiveJobs(request)
-
-            # Case 1: SUCCESS
-            if response.status == 1:
-                print("Successful update.")
-            else:
-                print("Issue with requesting update")
+            response = stub.RequestAction(request)
+            print(f"Action request: {response.status}")
         return response

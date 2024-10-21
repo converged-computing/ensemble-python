@@ -110,7 +110,7 @@ class MemberBase:
             # Not supported if the function does not exist
             if not run_action:
                 raise NotImplementedError("Action {rule.action.name} is not supported.")
-            self.announce(f"   {rule.action.name} {rule.action.label}")
+            self.announce(f"   {rule.action.name} {rule.action.label or ''}")
             run_action(rule, record)
 
         # Note that terminate exits but does not otherwise touch
@@ -146,11 +146,11 @@ class MemberBase:
         """
         self.cfg.check_supported(self.rules_supported)
 
-    def load(self, config_path):
+    def load(self, config_path, debug=False):
         """
         Load and validate the config path
         """
-        self.cfg = cfg.load_config(config_path)
+        self.cfg = cfg.load_config(config_path, debug)
         # All rules that the ensemble provides must be
         # supported by the queue executor
         self.validate_rules()

@@ -32,11 +32,14 @@ class Rule:
             return True
 
         # If we have a direct value, we check for equality
-        if isinstance(value, int) and value != self.when:
+        number = (int, float)
+        if isinstance(self.when, number) and value != self.when:
             return False
+        if isinstance(self.when, number) and value == self.when:
+            return True
 
         # Otherwise, parse for inequality
-        match = re.search(r"(?P<inequality>[<>]=?)\s*(?P<comparator>\w+)", value).groupdict()
+        match = re.search(r"(?P<inequality>[<>]=?)\s*(?P<comparator>\w+)", self.when).groupdict()
 
         # This could technically be a float value
         comparator = float(match["comparator"])

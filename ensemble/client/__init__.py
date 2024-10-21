@@ -46,6 +46,12 @@ def get_parser():
         choices=defaults.supported_members,
         default="flux",
     )
+    run.add_argument(
+        "--debug",
+        help="Enable debug logging for the config",
+        action="store_true",
+        default=False,
+    )
 
     for command in [run]:
         command.add_argument(

@@ -208,6 +208,9 @@ ensemble run examples/heartbeat-example.yaml
 # Grow/shrink requires a minicluster (flux doesn't support it) but we can mock it here
 # TODO - add greater than parsing, then run example here, then in operator
 ensemble run --executor minicluster examples/grow-shrink-example.yaml
+
+# Here is how to add on the fly debug (logging->debug true)
+ensemble run --debug --executor minicluster examples/grow-shrink-example.yaml
 ```
 
 Right now, this will run any rules with "start" triggers, which for this hello world example includes a few hello world jobs! You'll then be able to watch and see flux events coming in!

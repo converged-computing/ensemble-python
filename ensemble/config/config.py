@@ -19,11 +19,18 @@ script_template = """from ensemble.config.types import Action, Rule
 heartbeat_actions = {"grow", "shrink"}
 
 
-def load_config(config_path):
+def load_config(config_path, debug=False):
     """
     Load the config path, validating with the schema
     """
     cfg = utils.read_yaml(config_path)
+
+    # On the fly debugging
+    if debug:
+        if "logging" not in cfg:
+            cfg["logging"] = {}
+        cfg["logging"]["debug"] = True
+
     jsonschema.validate(cfg, schema=schema.ensemble_config_schema)
     return EnsembleConfig(cfg)
 

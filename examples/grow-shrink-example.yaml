@@ -1,10 +1,13 @@
-# Note that we don't need to "turn on" the heartbeat because grow is present.
-# I made these the size of the cluster so we trigger scaling at least once
-# We currently assume these are uniform (so no order enforced beyond the listing here)
+logging:
+  heartbeat: 10
+
 jobs:
+
+  # Note that echo seems to lose events here, not great
+  # not reliable for submit at the onset at least
   - name: echo
     command: echo hello world
-    count: 5
+    count: 10
     nodes: 1
 
   # Note that this takes up the entirety of our 4 node faux
@@ -14,13 +17,6 @@ jobs:
     command: sleep 100
     count: 10
     nodes: 4
-
-  # TODO need a test case for queue time waiting...
-  # Also need to implement when with < > case.
-  - name: big-sleep
-    command: sleep 10
-    count: 5
-    nodes: 10
 
 rules:
   # 1. This rule says to submit the sleep jobs when we start
@@ -39,7 +35,7 @@ rules:
 
   # When the pending time of sleep is > 5 seconds, grow the cluster.
   - trigger: metric
-    name: pending-duration.mean
+    name: mean.sleep-pending
     when: "> 5"
     action:
       name: grow

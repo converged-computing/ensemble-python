@@ -91,8 +91,9 @@ class EnsembleEndpoint(api.EnsembleOperatorServicer):
         response = ensemble_service_pb2.Response()
 
         # The member primarily is directed to take the action
-        member = members.get_member(request.member)
-        print(member)
+        # member = members.get_member(request.member)
+        # print(member)
+        print(response)
 
         if request.action == "grow":
             print("REQUEST TO GROW")
