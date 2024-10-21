@@ -7,6 +7,7 @@ import argparse
 import sys
 
 import ensemble
+import ensemble.defaults as defaults
 
 
 def get_parser():
@@ -42,7 +43,7 @@ def get_parser():
     run.add_argument(
         "--executor",
         help="Executor to use (defaults to flux)",
-        choices=["flux"],
+        choices=defaults.supported_members,
         default="flux",
     )
 

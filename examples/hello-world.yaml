@@ -21,7 +21,7 @@
 
 # Turn on verbose debug logging?
 logging:
-  debug: false
+  debug: true
 
 # I made these the size of the cluster so we trigger scaling at least once
 # We currently assume these are uniform (so no order enforced beyond the listing here)

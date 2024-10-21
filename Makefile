@@ -17,6 +17,10 @@ python: python ## Generate python proto files in python
 docker-build:
 	docker build -t ${IMG} .
 
+.PHONY: kind-load
+kind-load: docker-build # For local development with kind
+	kind load docker-image ${IMG}
+
 .PHONY: arm-build
 arm-build:
 	docker buildx build --platform linux/arm64 --build-arg ARCH=aarch_64 -t ${ARMIMG} .

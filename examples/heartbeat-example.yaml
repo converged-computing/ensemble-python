@@ -1,0 +1,48 @@
+# No verbose logging, but turn on the heartbeat every 3 seconds
+logging:
+  debug: false
+  heartbeat: 3
+
+# I made these the size of the cluster so we trigger scaling at least once
+# We currently assume these are uniform (so no order enforced beyond the listing here)
+jobs:
+  - name: echo
+    command: echo hello world
+    count: 5
+    nodes: 1
+  - name: sleep
+    command: sleep 10
+    count: 5
+    nodes: 1
+
+  # TODO need a test case for queue time waiting...
+  # Also need to implement when with < > case.
+  - name: big-sleep
+    command: sleep 10
+    count: 5
+    nodes: 10
+
+rules:
+  # 1. This rule says to submit the sleep jobs when we start
+  - trigger: start
+    action:
+      name: submit
+      label: sleep
+
+  # This says to submit the echo hello world jobs when we have 3
+  # successfully completed sleep jobs. This dot notation is a path into the
+  # models data structure.
+  - trigger: metric
+    name: count.sleep.success
+    when: 3
+    action:
+      name: submit
+      label: echo
+
+  # This says to submit
+  - trigger: metric
+    name: count.sleep.success
+    when: 3
+    action:
+      name: submit
+      label: echo

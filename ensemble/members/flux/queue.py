@@ -1,13 +1,15 @@
 import shlex
 import sys
-from datetime import datetime
+import time
 
+from ensemble.heartbeat import QueueHeartbeat
 from ensemble.members.base import MemberBase
 
 try:
     import flux
     import flux.constants
     import flux.job
+    import flux.message
 except ImportError:
     sys.exit("flux python is required to use the flux queue member")
 
@@ -70,6 +72,7 @@ class FluxQueue(MemberBase):
         job_filters (dict)     : key value pairs for attributes or states to filter jobs to
         include_inactive (bool): consider and include inactive jobs when doing initial parse
         refresh_interval (int) : number of seconds to refresh all metrics (0 indicates no refresh)
+        to 60 seconds. If you set to 0, it will not be set.
         """
         # Filter jobs to any attributes, states, or similar.
         self.filters = job_filters or {}
@@ -98,6 +101,8 @@ class FluxQueue(MemberBase):
         Custom termination function for flux.
         """
         self.handle.reactor_stop()
+        if self.cfg.heartbeat:
+            self.heartbeat.stop()
 
     def record_metrics(self, record):
         """
@@ -132,6 +137,33 @@ class FluxQueue(MemberBase):
         # with metric event updates. This is usually counts, etc.
         for rule in self.iter_rules("metric"):
             self.execute_rule(rule, record)
+
+    def record_heartbeat_metrics(self):
+        """
+        Heartbeat metrics cannot rely on an event, but need
+        to update metrics about the queue and then check to
+        see if any actions should be triggered related to that.
+
+        Note: this doesn't reset anything from previous pending, it
+        will be more like a moving average where the same jobs (if they
+        are still pending) get counted again, possibly increasing time.
+        """
+        groups = {}
+        for _, group in self.jobids:
+            groups.add(group["name"])
+
+            # If we have a submit but not a start, we haven't included
+            # pending yet
+            if "submit" in group and "start" not in group:
+                time_in_queue = time.time() - group["submit"]
+                group_name = f"{group['name']}-pending"
+                self.metrics.record_datum(group_name, time_in_queue)
+
+        print(f"Found active groups {groups}")
+
+        # Now execute metric rules that might be impacted
+        for rule in self.iter_rules("metric"):
+            self.execute_rule(rule)
 
     def record_start_metrics(self, event, record):
         """
@@ -258,11 +290,65 @@ class FluxQueue(MemberBase):
             flags=flux.constants.FLUX_RPC_STREAMING,
         )
         events.then(event_callback)
-        self.handle.reactor_run()
+        self.setup_heartbeat()
+        self.reactor_start()
 
-    def custom_action(self, rule, record=None):
+    def reactor_start(self):
         """
-        Custom action runs the action (and runs another action, if returned)
+        Courtesy function to start the reactor and more
+        gracefully handle keyboard interrupts.
+        """
+        try:
+            self.handle.reactor_run()
+        except KeyboardInterrupt:
+            self.terminate()
+
+    def setup_heartbeat(self):
+        """
+        Setup the heartbeat - a threading.Thread
+        """
+        if not self.cfg.heartbeat:
+            return
+
+        def heartbeat_callback(cls):
+            print("💗 HEARTBEAT")
+            print(cls)
+
+        # Instead we are using threading, which works!
+        self.heartbeat = QueueHeartbeat(self.cfg.heartbeat, heartbeat_callback, cls=self)
+        self.heartbeat.start()
+
+    def cron_heartbeat(self):
+        """
+        cron heartbeat provided by flux (does not work)
+        """
+
+        def heartbeat_callback(response):
+            print("💗 HEARTBEAT")
+            print(response)
+
+        # Create a cron heartbeat every N seconds, only if we have a heartbeat set
+        # This is intended for grow/shrink actions that might need a regular check
+        print(f"  💗 Creating flux heartbeat every {self.cfg.heartbeat} seconds")
+        heartbeat = self.handle.rpc(
+            "cron.create",
+            {
+                "type": "interval",
+                "name": "heartbeat",
+                "command": "sleep 0",
+                "args": {"interval": self.cfg.heartbeat},
+            },
+            flux.constants.FLUX_NODEID_ANY,
+            flags=flux.constants.FLUX_RPC_STREAMING,
+        )
+
+        self.handle.flux_event_subscribe("cron.*")
+        self.handle.event_subscribe("cron.*")
+        heartbeat.then(heartbeat_callback)
+
+    def custom(self, rule, record=None):
+        """
+        Custom runs a custom action (and runs another action, if returned)
         and passes forward the flux handle and other metadata.
         """
         kwargs = {
@@ -305,7 +391,7 @@ class FluxQueue(MemberBase):
                 jobid = flux.job.submit(self.handle, jobspec)
 
                 # Don't rely on an event here, this is when the user (us) submits
-                submit_time = datetime.now().timestamp()
+                submit_time = time.time()
 
                 # This is the job id that will show up in events
                 numerical = jobid.as_integer_ratio()[0]
