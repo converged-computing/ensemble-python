@@ -9,7 +9,7 @@ def get_member(name, options=None):
 
         return FluxQueue(**options)
     if name == "minicluster":
-        from ensemble.members.flux.minicluster import FluxQueue
+        from ensemble.members.flux.minicluster import FluxMiniClusterQueue
 
-        return FluxQueue(**options)
+        return FluxMiniClusterQueue(**options)
     raise ValueError(f"Member type {name} is not known")

@@ -1,6 +1,6 @@
 import shlex
 import sys
-from datetime import datetime
+import time
 
 from ensemble.heartbeat import QueueHeartbeat
 from ensemble.members.base import MemberBase
@@ -137,6 +137,33 @@ class FluxQueue(MemberBase):
         # with metric event updates. This is usually counts, etc.
         for rule in self.iter_rules("metric"):
             self.execute_rule(rule, record)
+
+    def record_heartbeat_metrics(self):
+        """
+        Heartbeat metrics cannot rely on an event, but need
+        to update metrics about the queue and then check to
+        see if any actions should be triggered related to that.
+
+        Note: this doesn't reset anything from previous pending, it
+        will be more like a moving average where the same jobs (if they
+        are still pending) get counted again, possibly increasing time.
+        """
+        groups = {}
+        for _, group in self.jobids:
+            groups.add(group["name"])
+
+            # If we have a submit but not a start, we haven't included
+            # pending yet
+            if "submit" in group and "start" not in group:
+                time_in_queue = time.time() - group["submit"]
+                group_name = f"{group['name']}-pending"
+                self.metrics.record_datum(group_name, time_in_queue)
+
+        print(f"Found active groups {groups}")
+
+        # Now execute metric rules that might be impacted
+        for rule in self.iter_rules("metric"):
+            self.execute_rule(rule)
 
     def record_start_metrics(self, event, record):
         """
@@ -364,7 +391,7 @@ class FluxQueue(MemberBase):
                 jobid = flux.job.submit(self.handle, jobspec)
 
                 # Don't rely on an event here, this is when the user (us) submits
-                submit_time = datetime.now().timestamp()
+                submit_time = time.time()
 
                 # This is the job id that will show up in events
                 numerical = jobid.as_integer_ratio()[0]

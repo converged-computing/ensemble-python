@@ -1,8 +1,4 @@
-# No verbose logging, but turn on the heartbeat every 3 seconds
-logging:
-  debug: false
-  heartbeat: 3
-
+# Note that we don't need to "turn on" the heartbeat because grow is present.
 # I made these the size of the cluster so we trigger scaling at least once
 # We currently assume these are uniform (so no order enforced beyond the listing here)
 jobs:
@@ -10,10 +6,14 @@ jobs:
     command: echo hello world
     count: 5
     nodes: 1
+
+  # Note that this takes up the entirety of our 4 node faux
+  # test cluster, so the grow will trigger when the queue time
+  # stacks up
   - name: sleep
-    command: sleep 10
-    count: 5
-    nodes: 1
+    command: sleep 100
+    count: 10
+    nodes: 4
 
   # TODO need a test case for queue time waiting...
   # Also need to implement when with < > case.
@@ -27,22 +27,19 @@ rules:
   - trigger: start
     action:
       name: submit
+      label: echo
+
+  # This says to submit the sleep jobs when we have 5 successful echo
+  - trigger: metric
+    name: count.echo.success
+    when: 5
+    action:
+      name: submit
       label: sleep
 
-  # This says to submit the echo hello world jobs when we have 3
-  # successfully completed sleep jobs. This dot notation is a path into the
-  # models data structure.
+  # When the pending time of sleep is > 5 seconds, grow the cluster.
   - trigger: metric
-    name: count.sleep.success
-    when: 3
+    name: pending-duration.mean
+    when: "> 5"
     action:
-      name: submit
-      label: echo
-
-  # This says to submit
-  - trigger: metric
-    name: count.sleep.success
-    when: 3
-    action:
-      name: submit
-      label: echo
+      name: grow

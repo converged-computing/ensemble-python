@@ -1,10 +1,10 @@
-from ensemble.members.flux import FluxQueue as MemberBase
+from ensemble.members.flux.queue import FluxQueue as MemberBase
 
 # These are triggers supported for rules
 rules = ["start", "metric"]
 
 
-class FluxQueue(MemberBase):
+class FluxMiniClusterQueue(MemberBase):
     """
     The Flux Queue MiniCluster member type
 

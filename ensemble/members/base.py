@@ -132,7 +132,7 @@ class MemberBase:
             item = item[path]
 
         # The user set a "when" and it must match exactly.
-        if rule.when is not None and item.get() != rule.when:
+        if not rule.run_when(item.get()):
             return
         if self.cfg.debug_logging:
             print(self.metrics.models)

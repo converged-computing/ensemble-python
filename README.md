@@ -204,6 +204,10 @@ ensemble run examples/terminate-example.yaml
 # Run a heartbeat every 3 seconds.
 # This will trigger a check to see if actions need to be performed
 ensemble run examples/heartbeat-example.yaml
+
+# Grow/shrink requires a minicluster (flux doesn't support it) but we can mock it here
+# TODO - add greater than parsing, then run example here, then in operator
+ensemble run --executor minicluster examples/grow-shrink-example.yaml
 ```
 
 Right now, this will run any rules with "start" triggers, which for this hello world example includes a few hello world jobs! You'll then be able to watch and see flux events coming in!
