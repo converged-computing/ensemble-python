@@ -101,8 +101,6 @@ class FluxQueue(MemberBase):
         Custom termination function for flux.
         """
         self.handle.reactor_stop()
-        if self.cfg.heartbeat:
-            self.heartbeat.stop()
 
     def record_metrics(self, record):
         """
@@ -301,8 +299,37 @@ class FluxQueue(MemberBase):
             flags=flux.constants.FLUX_RPC_STREAMING,
         )
         events.then(event_callback)
-        self.setup_heartbeat()
+        self.setup_flux_heartbeat()
         self.reactor_start()
+
+    def setup_flux_heartbeat(self):
+        """
+        Start the heartbeat via a flux watcher.
+        """
+        # Exit early if we aren't using a heartbeat
+        if not self.cfg.heartbeat:
+            return
+
+        # Customize the heartbeat duration by reloading the module
+        self.handle.rpc("module.remove", {"name": "heartbeat"}).get()
+        self.handle.rpc(
+            "module.load", {"path": "heartbeat", "args": [f"period={self.cfg.heartbeat}s"]}
+        ).get()
+
+        def heartbeat_callback(handle, msg_handler, msg, arg):
+            print("💗 HEARTBEAT")
+            self.summarize()
+            self.record_heartbeat_metrics()
+
+        self.handle.event_subscribe("heartbeat.pulse")
+
+        #  Create a message handler for the heartbeat.pulse event messages
+        watcher = self.handle.msg_watcher_create(
+            heartbeat_callback, flux.constants.FLUX_MSGTYPE_EVENT, "heartbeat.pulse"
+        )
+        # This relies on self.handle.reactor_start()
+        # this is called in the parent function, once.
+        watcher.start()
 
     def reactor_start(self):
         """
@@ -329,34 +356,6 @@ class FluxQueue(MemberBase):
         # Instead we are using threading, which works!
         self.heartbeat = QueueHeartbeat(self.cfg.heartbeat, heartbeat_callback, cls=self)
         self.heartbeat.start()
-
-    def cron_heartbeat(self):
-        """
-        cron heartbeat provided by flux (does not work)
-        """
-
-        def heartbeat_callback(response):
-            print("💗 HEARTBEAT")
-            print(response)
-
-        # Create a cron heartbeat every N seconds, only if we have a heartbeat set
-        # This is intended for grow/shrink actions that might need a regular check
-        print(f"  💗 Creating flux heartbeat every {self.cfg.heartbeat} seconds")
-        heartbeat = self.handle.rpc(
-            "cron.create",
-            {
-                "type": "interval",
-                "name": "heartbeat",
-                "command": "sleep 0",
-                "args": {"interval": self.cfg.heartbeat},
-            },
-            flux.constants.FLUX_NODEID_ANY,
-            flags=flux.constants.FLUX_RPC_STREAMING,
-        )
-
-        self.handle.flux_event_subscribe("cron.*")
-        self.handle.event_subscribe("cron.*")
-        heartbeat.then(heartbeat_callback)
 
     def custom(self, rule, record=None):
         """
