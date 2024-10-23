@@ -16,9 +16,8 @@ class MemberBase:
         """
         Create a new member type (e.g., FluxQueue)
         """
-        # Set options as attributes
-        for key, value in options.items():
-            setattr(self, key, value)
+        # Set options
+        self.options = options
 
         # Common queue metrics
         self.metrics = QueueMetrics()
@@ -87,7 +86,9 @@ class MemberBase:
     def execute_action(self, rule, record=None):
         """
         Execute a general action, it's assumed that
-        the trigger was called if we get here.
+        the trigger was called if we get here. Those supported by
+        Flux and the MiniCluster: submit, custom, terminate.
+        MiniCluster Only: shrink and grow.
         """
         # This function checks for repetitions and backoff
         # periods, and determines if we should continue (to run)
@@ -101,9 +102,15 @@ class MemberBase:
             self.announce(f"   submit {rule.action.label} ", self.cfg.pretty_job(rule.action.label))
             return self.submit(rule, record)
 
-        if rule.action.name == "custom":
-            self.announce(f"   custom {rule.action.label}")
-            return self.custom_action(rule, record)
+        # These all have the same logic to call the function of the same name
+        if rule.action.name in ["custom", "grow", "shrink"]:
+            run_action = getattr(self, rule.action.name, None)
+
+            # Not supported if the function does not exist
+            if not run_action:
+                raise NotImplementedError("Action {rule.action.name} is not supported.")
+            self.announce(f"   {rule.action.name} {rule.action.label or ''}")
+            run_action(rule, record)
 
         # Note that terminate exits but does not otherwise touch
         # the queue, etc. Given a reactor, we should just stop it
@@ -124,7 +131,7 @@ class MemberBase:
             item = item[path]
 
         # The user set a "when" and it must match exactly.
-        if rule.when is not None and item.get() != rule.when:
+        if not rule.run_when(item.get()):
             return
         if self.cfg.debug_logging:
             print(self.metrics.models)
@@ -138,11 +145,11 @@ class MemberBase:
         """
         self.cfg.check_supported(self.rules_supported)
 
-    def load(self, config_path):
+    def load(self, config_path, debug=False):
         """
         Load and validate the config path
         """
-        self.cfg = cfg.load_config(config_path)
+        self.cfg = cfg.load_config(config_path, debug)
         # All rules that the ensemble provides must be
         # supported by the queue executor
         self.validate_rules()
@@ -151,9 +158,6 @@ class MemberBase:
         """
         Submit a job
         """
-        raise NotImplementedError
-
-    def custom_action(self, rule, record=None):
         raise NotImplementedError
 
     def submit(self, *args, **kwargs):

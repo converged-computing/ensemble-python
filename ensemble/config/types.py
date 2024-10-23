@@ -1,3 +1,5 @@
+import re
+
 import ensemble.defaults as defaults
 
 
@@ -20,9 +22,60 @@ class Rule:
     def trigger(self):
         return self._rule["trigger"]
 
+    def run_when(self, value):
+        """
+        Check if "when" is relevant to be run now, return True/False
+        to say to run or not.
+        """
+        # No when is set, so we just continue assuming there is no when
+        if self.when is None:
+            return True
+
+        # If we have a direct value, we check for equality
+        number = (int, float)
+        if isinstance(self.when, number) and value != self.when:
+            return False
+        if isinstance(self.when, number) and value == self.when:
+            return True
+
+        # Otherwise, parse for inequality
+        match = re.search(r"(?P<inequality>[<>]=?)\s*(?P<comparator>\w+)", self.when).groupdict()
+
+        # This could technically be a float value
+        comparator = float(match["comparator"])
+        inequality = match["inequality"]
+        assert inequality in {"<", ">", "<=", ">=", "==", "="}
+
+        # Evaluate! Not sure there is a better way than this :)
+        if inequality == "<":
+            return value < comparator
+        if inequality == "<=":
+            return value <= comparator
+        if inequality == ">":
+            return value > comparator
+        if inequality == ">=":
+            return value >= comparator
+        if inequality in ["==", "="]:
+            return value == comparator
+        raise ValueError(f"Invalid comparator {comparator} for rule when")
+
+    def check_when(self):
+        """
+        Ensure we have a valid inequality before running anything!
+        """
+        # If a number, we require greater than == 0
+        if isinstance(self.when, int) and self.when >= 0:
+            return
+
+        # Check running the function with a value, should not raise error
+        try:
+            self.run_when(10)
+        except Exception as err:
+            raise ValueError(f"when: for rule {self} is not valid: {err}")
+
     @property
     def when(self):
-        return self._rule["when"]
+        return self._rule.get("when")
 
     def validate(self):
         """
@@ -33,6 +86,8 @@ class Rule:
             raise ValueError(
                 f"Rule trigger {self.trigger} has invalid action name {self.action.name}"
             )
+        # Ensure we have a valid number or inequality
+        self.check_when()
 
 
 class Action:
@@ -122,6 +177,12 @@ class Action:
         It should never go below zero, in practice.
         """
         return self.repetitions <= 0
+
+    def value(self, default=1):
+        """
+        Return a value, with some default (default is 1)
+        """
+        return self._action.get("value", 1)
 
     @property
     def label(self):

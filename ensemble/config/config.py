@@ -5,6 +5,7 @@ import shutil
 
 import jsonschema
 
+import ensemble.defaults as defaults
 import ensemble.utils as utils
 from ensemble import schema
 from ensemble.config.types import Rule
@@ -14,12 +15,22 @@ from ensemble.logger.generate import JobNamer
 script_template = """from ensemble.config.types import Action, Rule
 """
 
+# These are the actions that warrant the heartbeat
+heartbeat_actions = {"grow", "shrink"}
 
-def load_config(config_path):
+
+def load_config(config_path, debug=False):
     """
     Load the config path, validating with the schema
     """
     cfg = utils.read_yaml(config_path)
+
+    # On the fly debugging
+    if debug:
+        if "logging" not in cfg:
+            cfg["logging"] = {}
+        cfg["logging"]["debug"] = True
+
     jsonschema.validate(cfg, schema=schema.ensemble_config_schema)
     return EnsembleConfig(cfg)
 
@@ -34,6 +45,9 @@ class EnsembleConfig:
         self._cfg = cfg
         self.jobs = {}
         self.rules = {}
+
+        # By default, we don't require a heartbeat
+        self.require_heartbeat = False
         self.parse()
 
         # Cache of action names
@@ -42,6 +56,20 @@ class EnsembleConfig:
     @property
     def debug_logging(self):
         return self._cfg.get("logging", {}).get("debug") is True
+
+    @property
+    def heartbeat(self):
+        """
+        Get the heartbeat seconds.
+
+        If heartbeat actions are defined and no heartbeat is set, we require
+        it and default to 60. Otherwise, we allow it unset (0) or a user
+        specified value.
+        """
+        heartbeat = self._cfg.get("logging", {}).get("heartbeat") or 0
+        if not heartbeat and self.require_heartbeat:
+            heartbeat = defaults.heartbeat_seconds
+        return heartbeat
 
     def pretty_job(self, name):
         """
@@ -104,6 +132,10 @@ class EnsembleConfig:
 
         for rule in self._cfg["rules"]:
             rule = Rule(rule, self.custom)
+
+            # If the rule action is in the heartbeat set, we require heartbeat
+            if rule.action.name in heartbeat_actions:
+                self.require_heartbeat = True
 
             # Group rules with common trigger together
             if rule.trigger not in self.rules:

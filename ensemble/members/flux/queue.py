@@ -1,13 +1,16 @@
+import os
 import shlex
 import sys
-from datetime import datetime
+import time
 
+from ensemble.heartbeat import QueueHeartbeat
 from ensemble.members.base import MemberBase
 
 try:
     import flux
     import flux.constants
     import flux.job
+    import flux.message
 except ImportError:
     sys.exit("flux python is required to use the flux queue member")
 
@@ -57,9 +60,6 @@ class FluxQueue(MemberBase):
 
     def __init__(
         self,
-        job_filters=None,
-        include_inactive=False,
-        refresh_interval=0,
         summary_frequency=10,
         **kwargs,
     ):
@@ -67,15 +67,10 @@ class FluxQueue(MemberBase):
         Create a new flux handle to monitor a queue.
 
         Parameters:
-        job_filters (dict)     : key value pairs for attributes or states to filter jobs to
-        include_inactive (bool): consider and include inactive jobs when doing initial parse
-        refresh_interval (int) : number of seconds to refresh all metrics (0 indicates no refresh)
+        summary_frequency (int): how often (events) to show summary
+        to 60 seconds. If you set to 0, it will not be set.
         """
-        # Filter jobs to any attributes, states, or similar.
-        self.filters = job_filters or {}
         self.handle = flux.Flux()
-        self.include_inactive = include_inactive
-        self.refresh_interval = refresh_interval
 
         # How often on job completions to summarize?
         self.summary_freqency = summary_frequency
@@ -85,13 +80,19 @@ class FluxQueue(MemberBase):
         # https://github.com/flux-framework/flux-core/blob/master/src/modules/job-manager/journal.c#L28-L33
         self.seen_sentinel = False
 
+        # Have we run the start events?
+        self.started = False
+
         # We store the job id associated with a group until it's cleaned up
         self.jobids = {}
         super().__init__(**kwargs)
 
     @property
     def name(self):
-        return "FluxQueue"
+        """
+        Name is used to identify the ensemble member type.
+        """
+        return "flux"
 
     def terminate(self):
         """
@@ -132,6 +133,33 @@ class FluxQueue(MemberBase):
         # with metric event updates. This is usually counts, etc.
         for rule in self.iter_rules("metric"):
             self.execute_rule(rule, record)
+
+    def record_heartbeat_metrics(self):
+        """
+        Heartbeat metrics cannot rely on an event, but need
+        to update metrics about the queue and then check to
+        see if any actions should be triggered related to that.
+
+        Note: this doesn't reset anything from previous pending, it
+        will be more like a moving average where the same jobs (if they
+        are still pending) get counted again, possibly increasing time.
+        """
+        groups = set()
+        for _, group in self.jobids.items():
+            groups.add(group["name"])
+
+            # If we have a submit but not a start, we haven't included
+            # pending yet
+            if "submit" in group and "start" not in group:
+                time_in_queue = time.time() - group["submit"]
+                group_name = f"{group['name']}-pending"
+                self.metrics.record_datum(group_name, time_in_queue)
+
+        print(f"Found active groups {groups}")
+
+        # Now execute metric rules that might be impacted
+        for rule in self.iter_rules("metric"):
+            self.execute_rule(rule)
 
     def record_start_metrics(self, event, record):
         """
@@ -199,12 +227,11 @@ class FluxQueue(MemberBase):
         Record the event. This needs to be specific to the workload manager.
         """
         # The sentinel tells us when the "backlog" is finished
-        if not self.seen_sentinel:
-            if record["id"] == -1:
-                if self.cfg.debug_logging:
-                    print("Sentinel is seen, starting event monitoring.")
-                self.seen_sentinel = True
-                return
+        if record["id"] == -1:
+            if self.cfg.debug_logging:
+                print("Sentinel is seen, starting event monitoring.")
+            self.seen_sentinel = True
+            return
 
         # Record metrics for the event
         self.record_metrics(record)
@@ -228,6 +255,18 @@ class FluxQueue(MemberBase):
         for rule in self.iter_rules(job_event):
             self.execute_rule(rule, record)
 
+    def ensure_started(self):
+        """
+        Run start rules.
+        """
+        if self.started:
+            return
+
+        # Iterate through actions provided by the rule
+        for rule in self.iter_rules("start"):
+            self.execute_rule(rule)
+        self.started = True
+
     def start(self):
         """
         Init the events subscriber (no longer pub sub but a callback)
@@ -235,14 +274,14 @@ class FluxQueue(MemberBase):
 
         https://github.com/flux-framework/flux-core/blob/master/src/modules/job-manager/journal.c#L11-L41
         """
-        # Iterate through actions provided by the rule
-        for rule in self.iter_rules("start"):
-            self.execute_rule(rule)
 
         def event_callback(response):
             """
             Receive callback when a flux job posts an event.
             """
+            # This needs to happen when the event callback is running
+            # Otherwise we get a race and can miss start events
+            self.ensure_started()
             payload = response.get()
 
             # Only print if the config has logging->debug set to true
@@ -258,11 +297,66 @@ class FluxQueue(MemberBase):
             flags=flux.constants.FLUX_RPC_STREAMING,
         )
         events.then(event_callback)
-        self.handle.reactor_run()
+        self.setup_flux_heartbeat()
+        self.reactor_start()
 
-    def custom_action(self, rule, record=None):
+    def setup_flux_heartbeat(self):
         """
-        Custom action runs the action (and runs another action, if returned)
+        Start the heartbeat via a flux watcher.
+        """
+        # Exit early if we aren't using a heartbeat
+        if not self.cfg.heartbeat:
+            return
+
+        # Customize the heartbeat duration by reloading the module
+        # We call to system flux since python can error
+        assert os.system("flux module remove heartbeat") == 0
+        assert os.system(f"flux module load heartbeat period={self.cfg.heartbeat}s") == 0
+
+        def heartbeat_callback(handle, msg_handler, msg, arg):
+            print("💗 HEARTBEAT")
+            self.summarize()
+            self.record_heartbeat_metrics()
+
+        self.handle.event_subscribe("heartbeat.pulse")
+
+        #  Create a message handler for the heartbeat.pulse event messages
+        watcher = self.handle.msg_watcher_create(
+            heartbeat_callback, flux.constants.FLUX_MSGTYPE_EVENT, "heartbeat.pulse"
+        )
+        # This relies on self.handle.reactor_start()
+        # this is called in the parent function, once.
+        watcher.start()
+
+    def reactor_start(self):
+        """
+        Courtesy function to start the reactor and more
+        gracefully handle keyboard interrupts.
+        """
+        try:
+            self.handle.reactor_run()
+        except KeyboardInterrupt:
+            self.terminate()
+
+    def setup_heartbeat(self):
+        """
+        Setup the heartbeat - a threading.Thread
+        """
+        if not self.cfg.heartbeat:
+            return
+
+        def heartbeat_callback(cls):
+            print("💗 HEARTBEAT")
+            self.summarize()
+            self.record_heartbeat_metrics()
+
+        # Instead we are using threading, which works!
+        self.heartbeat = QueueHeartbeat(self.cfg.heartbeat, heartbeat_callback, cls=self)
+        self.heartbeat.start()
+
+    def custom(self, rule, record=None):
+        """
+        Custom runs a custom action (and runs another action, if returned)
         and passes forward the flux handle and other metadata.
         """
         kwargs = {
@@ -288,6 +382,11 @@ class FluxQueue(MemberBase):
             jobset = self.extract_jobs(group)
 
             for job in jobset:
+                # If the number of tasks < node count we get an error
+                # assume the user wants one task per node
+                if job["tasks"] < job["nodes"]:
+                    job["tasks"] = job["nodes"]
+
                 jobspec = flux.job.JobspecV1.from_command(
                     command=job["command"], num_nodes=job["nodes"], num_tasks=job["tasks"]
                 )
@@ -305,7 +404,7 @@ class FluxQueue(MemberBase):
                 jobid = flux.job.submit(self.handle, jobspec)
 
                 # Don't rely on an event here, this is when the user (us) submits
-                submit_time = datetime.now().timestamp()
+                submit_time = time.time()
 
                 # This is the job id that will show up in events
                 numerical = jobid.as_integer_ratio()[0]

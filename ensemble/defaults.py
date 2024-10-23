@@ -1,7 +1,10 @@
 workers = 10
 port = 50051
 
-valid_actions = ["submit", "custom", "terminate"]
+supported_members = ["flux", "minicluster"]
+valid_actions = ["submit", "custom", "terminate", "grow", "shrink"]
+heartbeat_seconds = 60
+service_account_file = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
 
 job_events = [
     "job-depend",

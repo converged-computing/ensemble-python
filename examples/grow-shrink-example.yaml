@@ -1,0 +1,41 @@
+logging:
+  heartbeat: 3
+
+jobs:
+
+  # Note that echo seems to lose events here, not great
+  # not reliable for submit at the onset at least
+  - name: echo
+    command: echo hello world
+    count: 10
+    nodes: 1
+
+  # Note that this takes up the entirety of our 4 node faux
+  # test cluster, so the grow will trigger when the queue time
+  # stacks up
+  - name: sleep
+    command: sleep 100
+    count: 10
+    nodes: 4
+
+rules:
+  # 1. This rule says to submit the sleep jobs when we start
+  - trigger: start
+    action:
+      name: submit
+      label: echo
+
+  # This says to submit the sleep jobs when we have 5 successful echo
+  - trigger: metric
+    name: count.echo.success
+    when: 5
+    action:
+      name: submit
+      label: sleep
+
+  # When the pending time of sleep is > 5 seconds, grow the cluster.
+  - trigger: metric
+    name: mean.sleep-pending
+    when: "> 5"
+    action:
+      name: grow

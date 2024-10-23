@@ -6,36 +6,24 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class StatusRequest(_message.Message):
-    __slots__ = ("member", "algorithm")
+    __slots__ = ("member", "name")
     MEMBER_FIELD_NUMBER: _ClassVar[int]
-    ALGORITHM_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
     member: str
-    algorithm: str
-    def __init__(self, member: _Optional[str] = ..., algorithm: _Optional[str] = ...) -> None: ...
-
-class UpdateRequest(_message.Message):
-    __slots__ = ("member", "algorithm", "options", "payload")
-    MEMBER_FIELD_NUMBER: _ClassVar[int]
-    ALGORITHM_FIELD_NUMBER: _ClassVar[int]
-    OPTIONS_FIELD_NUMBER: _ClassVar[int]
-    PAYLOAD_FIELD_NUMBER: _ClassVar[int]
-    member: str
-    algorithm: str
-    options: str
-    payload: str
-    def __init__(self, member: _Optional[str] = ..., algorithm: _Optional[str] = ..., options: _Optional[str] = ..., payload: _Optional[str] = ...) -> None: ...
+    name: str
+    def __init__(self, member: _Optional[str] = ..., name: _Optional[str] = ...) -> None: ...
 
 class ActionRequest(_message.Message):
-    __slots__ = ("member", "algorithm", "action", "payload")
+    __slots__ = ("member", "name", "action", "payload")
     MEMBER_FIELD_NUMBER: _ClassVar[int]
-    ALGORITHM_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
     ACTION_FIELD_NUMBER: _ClassVar[int]
     PAYLOAD_FIELD_NUMBER: _ClassVar[int]
     member: str
-    algorithm: str
+    name: str
     action: str
     payload: str
-    def __init__(self, member: _Optional[str] = ..., algorithm: _Optional[str] = ..., action: _Optional[str] = ..., payload: _Optional[str] = ...) -> None: ...
+    def __init__(self, member: _Optional[str] = ..., name: _Optional[str] = ..., action: _Optional[str] = ..., payload: _Optional[str] = ...) -> None: ...
 
 class Response(_message.Message):
     __slots__ = ("payload", "status")

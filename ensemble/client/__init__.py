@@ -7,6 +7,7 @@ import argparse
 import sys
 
 import ensemble
+import ensemble.defaults as defaults
 
 
 def get_parser():
@@ -42,8 +43,29 @@ def get_parser():
     run.add_argument(
         "--executor",
         help="Executor to use (defaults to flux)",
-        choices=["flux"],
+        choices=defaults.supported_members,
         default="flux",
+    )
+    run.add_argument(
+        "--name",
+        help="Identifier for member (required for minicluster)",
+    )
+    run.add_argument(
+        "--debug",
+        help="Enable debug logging for the config",
+        action="store_true",
+        default=False,
+    )
+    run.add_argument(
+        "--port",
+        help=f"Port to run application (defaults to {defaults.port})",
+        default=defaults.port,
+        type=int,
+    )
+    run.add_argument(
+        "--host",
+        help="Host with server (defaults to localhost)",
+        default="localhost",
     )
 
     for command in [run]:

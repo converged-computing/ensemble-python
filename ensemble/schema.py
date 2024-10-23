@@ -8,18 +8,21 @@ ensemble_config_schema = {
     "type": "object",
     # The only required thing is the algorithm, since we can respond to jobs that
     # are submit otherwise in the queue.
-    "required": ["rules"],
+    "required": ["rules", "jobs"],
     "properties": {
-        "attributes": {"$ref": "#/definitions/algorithm"},
         "jobs": {"$ref": "#/definitions/jobs"},
         "rules": {"$ref": "#/definitions/rules"},
+        "logging": {"$ref": "#/definitions/logging"},
+        "custom": {"type": "string"},
         "additionalProperties": False,
     },
     "definitions": {
-        "custom": {"type": "string"},
         "logging": {
             "type": "object",
-            "properties": {"debug": {"type": "boolean", "default": False}},
+            "properties": {
+                "debug": {"type": "boolean", "default": False},
+                "heartbeat": {"type": "number"},
+            },
             "additionalProperties": False,
         },
         "jobs": {
@@ -65,7 +68,8 @@ ensemble_config_schema = {
                         "items": {
                             "properties": {
                                 "name": {"type": "string"},
-                                "label": {"type": "string"},
+                                "value": {"type": ["number", "string"]},
+                                "label": {"type": ["number", "string"]},
                             },
                             "required": ["name"],
                         },
