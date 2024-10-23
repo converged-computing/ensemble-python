@@ -16,9 +16,8 @@ class MemberBase:
         """
         Create a new member type (e.g., FluxQueue)
         """
-        # Set options as attributes
-        for key, value in options.items():
-            setattr(self, key, value)
+        # Set options
+        self.options = options
 
         # Common queue metrics
         self.metrics = QueueMetrics()

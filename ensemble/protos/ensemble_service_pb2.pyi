@@ -6,20 +6,24 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class StatusRequest(_message.Message):
-    __slots__ = ("member",)
+    __slots__ = ("member", "namespace")
     MEMBER_FIELD_NUMBER: _ClassVar[int]
+    NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     member: str
-    def __init__(self, member: _Optional[str] = ...) -> None: ...
+    namespace: str
+    def __init__(self, member: _Optional[str] = ..., namespace: _Optional[str] = ...) -> None: ...
 
 class ActionRequest(_message.Message):
-    __slots__ = ("member", "action", "payload")
+    __slots__ = ("member", "namespace", "action", "payload")
     MEMBER_FIELD_NUMBER: _ClassVar[int]
+    NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     ACTION_FIELD_NUMBER: _ClassVar[int]
     PAYLOAD_FIELD_NUMBER: _ClassVar[int]
     member: str
+    namespace: str
     action: str
     payload: str
-    def __init__(self, member: _Optional[str] = ..., action: _Optional[str] = ..., payload: _Optional[str] = ...) -> None: ...
+    def __init__(self, member: _Optional[str] = ..., namespace: _Optional[str] = ..., action: _Optional[str] = ..., payload: _Optional[str] = ...) -> None: ...
 
 class Response(_message.Message):
     __slots__ = ("payload", "status")

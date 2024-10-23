@@ -59,7 +59,6 @@ class FluxQueue(MemberBase):
 
     def __init__(
         self,
-        refresh_interval=0,
         summary_frequency=10,
         **kwargs,
     ):
@@ -68,11 +67,9 @@ class FluxQueue(MemberBase):
 
         Parameters:
         summary_frequency (int): how often (events) to show summary
-        refresh_interval (int) : number of seconds to refresh all metrics (0 indicates no refresh)
         to 60 seconds. If you set to 0, it will not be set.
         """
         self.handle = flux.Flux()
-        self.refresh_interval = refresh_interval
 
         # How often on job completions to summarize?
         self.summary_freqency = summary_frequency

@@ -83,6 +83,7 @@ class EnsembleEndpoint(api.EnsembleOperatorServicer):
         Request an action is performed according to an algorithm.
         """
         print(f"Member {request.member}")
+        print(f"Namespace {request.namespace}")
         print(f"Action {request.action}")
         print(f"Payload {request.payload}")
 
