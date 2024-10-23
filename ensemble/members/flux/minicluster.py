@@ -61,28 +61,16 @@ class FluxMiniClusterQueue(MemberBase):
         """
         Request to the API to grow the MiniCluster
         """
-        # We need to send over the name and namespace
         name = self.options["name"]
-        namespace = self.options["namespace"]
-
-        # For now use the ensemble type as the name
-        # TODO this needs to be caught and decided upon - retry?
-        response = self.client.action_request(
-            name=name, namespace=namespace, action="grow", payload={}
-        )
+        response = self.client.action_request(member=name, action="grow", payload={})
         print(response)
 
     def shrink(self, rule, record=None):
         """
         Request to the API to shrink the MiniCluster
         """
-        # We need to send over the name and namespace
         name = self.options["name"]
-        namespace = self.options["namespace"]
-
-        response = self.client.action_request(
-            name=name, namespace=namespace, action="shrink", payload={}
-        )
+        response = self.client.action_request(member=name, action="shrink", payload={})
         print(response)
 
     @property

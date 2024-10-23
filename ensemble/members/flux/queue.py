@@ -1,3 +1,4 @@
+import os
 import shlex
 import sys
 import time
@@ -308,10 +309,9 @@ class FluxQueue(MemberBase):
             return
 
         # Customize the heartbeat duration by reloading the module
-        self.handle.rpc("module.remove", {"name": "heartbeat"}).get()
-        self.handle.rpc(
-            "module.load", {"path": "heartbeat", "args": [f"period={self.cfg.heartbeat}s"]}
-        ).get()
+        # We call to system flux since python can error
+        assert os.system("flux module remove heartbeat") == 0
+        assert os.system(f"flux module load heartbeat period={self.cfg.heartbeat}s") == 0
 
         def heartbeat_callback(handle, msg_handler, msg, arg):
             print("💗 HEARTBEAT")
