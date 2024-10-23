@@ -21,5 +21,6 @@ RUN python3 -m pip install --break-system-packages -r requirements.txt && \
     python3 -m pip install --break-system-packages  -e .
 
 # ensemble-server start --workers 10 --port <port>
+ENV PYTHONUNBUFFERED=1
 ENTRYPOINT ["ensemble-server"]
 CMD ["start"]

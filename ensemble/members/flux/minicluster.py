@@ -57,12 +57,27 @@ class FluxMiniClusterQueue(MemberBase):
         self._client = EnsembleClient(host=self.host)
         return self._client
 
+    @property
+    def payload(self):
+        """
+        Return the default payload
+        """
+        return {"version": "v1alpha2", "group": "flux-framework.org"}
+
     def grow(self, rule, record=None):
         """
         Request to the API to grow the MiniCluster
         """
         name = self.options["name"]
-        response = self.client.action_request(member=name, action="grow", payload={})
+        payload = self.payload
+
+        # Add the grow value to the payload
+        payload["grow"] = rule.action.value()
+
+        # Member "minicluster" should be plural here
+        response = self.client.action_request(
+            member=f"{self.name}s", name=name, action="grow", payload=payload
+        )
         print(response)
 
     def shrink(self, rule, record=None):
@@ -70,7 +85,14 @@ class FluxMiniClusterQueue(MemberBase):
         Request to the API to shrink the MiniCluster
         """
         name = self.options["name"]
-        response = self.client.action_request(member=name, action="shrink", payload={})
+
+        # Add the grow value to the payload
+        payload = self.payload
+        payload["shrink"] = rule.action.value()
+
+        response = self.client.action_request(
+            member=f"{self.name}s", name=name, action="shrink", payload=payload
+        )
         print(response)
 
     @property

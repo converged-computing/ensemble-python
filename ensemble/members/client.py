@@ -19,14 +19,16 @@ class EnsembleClient:
         self.host = host
         self.use_ssl = use_ssl
 
-    def action_request(self, member, action, payload):
+    def action_request(self, member, name, action, payload):
         """
         Send an action request to the grpc server.
         """
         payload = json.dumps(payload)
 
         # These are submit variables. A more substantial submit script would have argparse, etc.
-        request = ensemble_service_pb2.ActionRequest(member=member, action=action, payload=payload)
+        request = ensemble_service_pb2.ActionRequest(
+            member=member, name=name, action=action, payload=payload
+        )
 
         with auth.grpc_channel(self.host, self.use_ssl) as channel:
             stub = ensemble_service_pb2_grpc.EnsembleOperatorStub(channel)

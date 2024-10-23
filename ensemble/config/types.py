@@ -178,6 +178,12 @@ class Action:
         """
         return self.repetitions <= 0
 
+    def value(self, default=1):
+        """
+        Return a value, with some default (default is 1)
+        """
+        return self._action.get("value", 1)
+
     @property
     def label(self):
         return self._action.get("label")

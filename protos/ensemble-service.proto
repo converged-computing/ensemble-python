@@ -14,13 +14,13 @@ message StatusRequest {
 
     // This is the ensemble member type (e.g., minicluster)
     string member = 1;
-    string namespace = 2;
+    string name = 2;
 }
 
 // ActionRequest requests an action
 message ActionRequest {
     string member = 1;
-    string namespace = 2;
+    string name = 2;
     string action = 3;
     string payload = 4;
 }

@@ -68,6 +68,7 @@ ensemble_config_schema = {
                         "items": {
                             "properties": {
                                 "name": {"type": "string"},
+                                "value": {"type": ["number", "string"]},
                                 "label": {"type": ["number", "string"]},
                             },
                             "required": ["name"],
