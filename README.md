@@ -1,26 +1,25 @@
 # ensemble
 
+> create state machines to orchestrate units of work
+
 ![PyPI - Version](https://img.shields.io/pypi/v/ensemble-python)
 
-An HPC ensemble is an orchestration of jobs that can ideally be controlled by an algorithm. Ensemble (in python) is a project to do exactly that. As a user, you specify the parameters for your job, and then an algorithm and options for it. But when you think about it, an algorithm *could* have a known name or label, but in its simplest form it is a set of rules (triggers and actions) that make up a state machine. In that light, ensemble python is a simple tool to create state machines to orchestrate units of work with workload managers. Specific sets of rules could be packaged up to be called an algorithm, and in fact that might be what we eventually call the yaml file that defines them. For now, we call them ensembles.
+An HPC ensemble is an orchestration of jobs that can ideally be controlled by an algorithm. Ensemble (in python) is a project that provides a state machine to do exactly that. As a user, you specify one or more job groups, and then rules (triggers and actions) for how to act on different events. These rules, likely customized for a workflow or application, are what encompass your algorithm. This means that we define:
 
-The library here listens for the heartbeat of your ensemble -- events that come directly from the queue or entity that is controlling the jobs.
-This means that we define:
-
-- A number of executors (typically queues) that can deliver events (job completion events to start)
-- Rules for when to submit jobs (at onset, at periods during running)
+- A number of ensemble members (typically workload managers, queues, or job abstractions) that can deliver events
+- Groups of jobs (converted into a job specification for the queue to consume)
+- Rules for when to submit or otherwise interact with jobs (at onset, at periods during running, etc.)
 - Rules for when to stop, cancel, or terminate
-- Parameters for the jobs (what will be converted into a job specification for the queue to consume)
 - Rules for when to change the environment (cluster) like growing or shrinking, if supported
-- A set of online (streaming) ML metrics (e.g., mean, median or MAD, min/max, etc) that are recorded for each job group and state (finished, failed succeeded)
+- A set of online (streaming) ML metrics (e.g., mean, median or MAD, IRQ, min/max, etc) that are recorded for each job group and state (finished, failed, succeeded, etc.)
 
-At a high level, we need to be able to define events, and rules for transitioning to new states. This even means we could make infinite loops (I accidentally already did). There should be an executor or queue interface that can support any kind of workload manager queue that can return the expected types.
+At a high level, we are reacting to events with rules for transitioning to new states. This even means we can make infinite loops (I accidentally already did). There can be an executor or queue interface that can support any kind of workload manager queue that can return the expected types.
 
 🚧 Under Construction! 🚧
 
 ## Design
 
-This design will be translated into more consolidated design documentation. For now I'm putting it here.
+This design will be translated into more consolidated design documentation. You can see how it works in Kubernetes via the [Ensemble Operator here](https://converged-computing.org/ensemble-operator/getting_started/design.html). For now I'm putting design notes and features supported here.
 
 ### Concepts
 
@@ -42,16 +41,15 @@ logging:
   debug: true
 ```
 
-To set the event heartbeat to fire at some increment, set it:
+To set the event heartbeat to fire at some increment in seconds, set it:
 
 ```yaml
 logging:
   debug: true
-  heartbeat: 60
+  heartbeat: 3
 ```
 
-Note that by default it is turned off (set to 0 seconds) unless you include a grow or shrink action. In that case, it turns on and defaults to 60, unless you've specified another interval.
-If you have grow/shrink and explicitly turn it off, it will still default to 60 seconds, because grow/shrink won't work as expected without the heartbeat.
+Note that by default it is turned off (set to 0 seconds) unless you include a grow or shrink action. In that case, it turns on and defaults to 60, unless you've specified another interval. If you have grow/shrink and explicitly turn it off, it will still default to 60 seconds, because grow/shrink won't work as expected without the heartbeat.
 
 #### Rules
 
@@ -80,7 +78,8 @@ rules:
       label: amg
 ```
 
-Note that yes, this means "submit" is both an action and an event.
+Note that yes, this means "submit" is both an action and an event. For each action, you should minimally define the "name" and a "label" that typically corresponds to a job group. You can also optionally define "repetitions," which are the number of times the action should be run before expiring. If you want a backoff period between repetitions, set "backoff" to a non zero value.
+By default, when no repetitions or backoff are set, the action is assumed to have a repetition of 1. It will be run once.
 
 ##### Actions
 
@@ -97,20 +96,15 @@ The design of a rule is to have an action, and the action is something your ense
 - *grow*: grow (or request) the cluster to scale up
 - *shrink*: shrink (or request) the cluster to scale down
 
-For the scale operations, since this brings in the issue of resource contention between different ensembles, we have to assume to start that a request to scale:
+For the scale operations, since this brings in the issue of resource contention between different ensembles, this will typically fall under the responsibility of the GRPC service that can see multiple ensembles and implement something like fair share. I have not tested this use case yet. The default for each of the above (and all actions) are to be run just once, so if you want to allow grow multiple times, you will need to set `replications`. To space them out over heartbeats (checks) you can set a `backoff` period.
 
-1. Should only happen once. If it's granted, great, if not, we aren't going to ask again.
-2. Does not need to consider another level of scheduler (e.g., fair share)
+When it is time to run several ensembles at once, I am intending on putting this logic (or fair share algorithm) in the grpc service. I have not yet because this is another level of complexity that is not warranted yet. 
 
-I started thinking about putting a second scheduler (or fair share algorithm) in the grpc service, but realized this was another level of complexity that although we might work on it later, is not warranted yet.
-Also note that since scale operation triggers might not be linked to job events (e.g., if we want to trigger when a job group has been in the queue for too long) we added support for a heartbeat. The heartbeat
-isn't a trigger in and of itself, but when it runs, it will run through rules that are relevant to queue metrics.
-We see "submit" as two examples in the above, which is a common thing you'd want to do! For each action, you should minimally define the "name" and a "label" that typically corresponds to a job group.
-You can also optionally define "repetitions," which are the number of times the action should be run before expiring. If you want a backoff period between repetitions, set "backoff" to a non zero value.
-By default, when no repetitions or backoff are set, the action is assumed to have a repetition of 1. It will be run once! Let's now look at a custom action. Here is what your function should look like in your `ensemble.yaml`
+###### Heartbeat
+
+Also note that since scale operation triggers might not be linked to job events (e.g., if we want to trigger when a job group has been in the queue for too long) we added support for a heartbeat. The heartbeat isn't a trigger in and of itself, but when it runs, it will run through rules that are relevant to queue metrics. 
 
 ##### Actions
-
 
 Custom actions are also supported, where you define a custom function that in and of itself returns an action! Here is an example to extend the above. Let's say we want to run the group "echo" again, we might do the following:
 
@@ -143,6 +137,7 @@ Note that in the above, we get access to the following via kwargs:
  - return "None" to do nothing
  - return an action to follow up your custom function
 
+You can do whatever you like in custom rules! Try interacting with other APIs on the host that are related to resources of interest.
 
 #### Metrics
 
@@ -170,10 +165,7 @@ Along with that, we take counts of everything! Here is after running two groups 
 {'variance': {'sleep-duration': Var: 0.000006, 'echo-duration': Var: 0.}, 'mean': {'sleep-duration': Mean: 10.015157, 'echo-duration': Mean: 0.013609}, 'iqr': {'sleep-duration': IQR: 0.003083, 'echo-duration': IQR: 0.000416}, 'max': {'sleep-duration': Max: 10.020326, 'echo-duration': Max: 0.014329}, 'min': {'sleep-duration': Min: 10.012975, 'echo-duration': Min: 0.011784}, 'mad': {'sleep-duration': MAD: 0.001754, 'echo-duration': MAD: 0.000244}, 'count': {'sleep': {'finished': Count: 10., 'success': Count: 10.}, 'echo': {'finished': Count: 20., 'success': Count: 20.}}}
 ```
 
-### Overview
-
-Since this will need to handle many ensembles, I'm going to try designing it as a service. But note that it doesn't _need_ to be run as one (I'm developing and just running flux directly with the command line client, which works too). There will be grpc endpoints that can receive messages. Each queue or executor will have its own separate running process. E.g., for Flux we will have a script running alongside a broker with a flux handle. This should ideally use events (but is not required to if the queue does not support that).
-
+These metrics are important because "metric" is a trigger, and then you can define a specific metric and threshold and action. E.g., "When the mean pending time of job group N is greater than 5, do this action."
 
 ## Example
 
@@ -352,27 +344,12 @@ You can then test the MiniCluster monitoring tool (separately):
 python3 -m ensemble.members.flux
 ```
 
-### Questions or Items to DO
+### Next steps
 
-- We probably want some kind of cron or heartbeat functionality (does flux have a job like this?)
-- We will want parameters, etc. to vary based on custom functions.
-- Likely a custom function should be able to return None and then actions or other rules.
 - Move (this) verbose readme into proper docs
-- Likely bug - when we have a huge backlog to parse and can't get all previous ids.
-
-#### Next step applications
-
-- If the output data of lammps (or some app) looks one one, do action X. Otherwise Y. We could use "plugins" that provide custom actions here that are app specific.
+- A collection of custom functions (e.g., parse LAMMPS output and get this FOM and act on it) can be provided as custom plugins
+- Interactions with other APIs or resources that expose a Python API are possible and can also be custom plugins.
 - Real world use case is AMS - running either surrogate or multi-physics model. whenever runs the physics model, saves the input/output pairs and uses them to retrain. "Under what conditions would AMS need to start training." We would also want to look at cases with conditional logic.
-- Flux operator - implement with grpc, and set duration criteria to grow until we reach. As example, could look at queue wait times - "This job is running too long, run lammps with 8 instead of 16." In simpler terms, if my rate of job completions is too low then I want more resources. High level, we want to change the per job shape based on amount of ime to run the job
-
-#### Thinking through service design
-
-1. The ensemble (python) would be started as a MiniCluster in a Kubernetes Cluster.
-2. The ensemble operator would be in charge of creating the MiniCluster, along with a pod that orchestrates the service (the ensemble-service grpc)
-3. To start there would be one ensemble running per Ensemble Operator CRD (but could be multiple)
-4. We would only want the service to ping the operator when the MiniCluster needs to change (scale, etc).
-5. This means that when we create the service and MiniCluster, each needs to know about one another (the address)
 
 ## License
 
